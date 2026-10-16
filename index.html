@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>縦持ち 現在階</title>
+<title>縦持ちモニター</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -46,12 +46,24 @@ nav.tabs a.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow
 .conn.ok{background:var(--ok-s);color:var(--ok)}.conn.ng{background:var(--red-s);color:var(--red)}
 .errbar{background:var(--red-s);color:var(--red);font-weight:700;padding:10px 20px;border-bottom:1px solid #F3C4BF}
 main{max-width:1480px;margin:0 auto;padding:18px 20px 40px}
+body.fit main{max-width:none;padding:10px 14px;overflow:hidden}
+body.fit #v-monitor.on{display:flex;flex-direction:column;height:100%}
 .view{display:none}.view.on{display:block}
 
 /* ---------- 事務所モニター ---------- */
 .mon{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+body.fit .mon{flex:1;min-height:0;flex-wrap:nowrap;align-items:stretch;gap:14px}
 .bld{flex:999 1 760px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+body.fit .bld{display:flex;flex-direction:column;min-height:0}
+body.fit #floors{flex:1;min-height:0;display:flex;flex-direction:column}
+body.fit .frow{flex:1 1 0;height:auto;min-height:0}
+body.fit .lane{align-items:stretch}
+body.fit .tc{height:auto;max-height:100%}
+.tc>*{flex-shrink:0}
+body.fit .legend{padding:6px 14px}
 .side{flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:16px}
+body.fit .side{flex:0 0 380px;min-height:0;overflow-y:auto}
+body.fit .side .hist-wrap{max-height:none}
 .bld-h,.frow{display:grid;grid-template-columns:88px 150px minmax(0,1fr) 172px}
 .bld-h{background:#F8F9FB;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
 .bld-h div{padding:8px 12px}
@@ -106,6 +118,18 @@ main{max-width:1480px;margin:0 auto;padding:18px 20px 40px}
 .mv .a b{font-size:15px}
 .mv .a span{margin-left:auto;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
 .mv small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unpl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;background:var(--orange-s);border-bottom:1px solid #F0D2B4;font-size:13px;color:var(--orange)}
+.unpl b{font-size:14px}
+.unpl button{height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--orange-b);background:var(--card);font-weight:700;font-size:14px;color:var(--ink)}
+.unpl button.sel{border:2px solid var(--accent);background:var(--accent-s)}
+.ghost{position:fixed;z-index:100;pointer-events:none;opacity:.92;box-shadow:0 12px 28px rgba(0,0,0,.25);transform:rotate(-2deg)}
+.dragging{opacity:.35}
+.tc,.mv,.unpl button{touch-action:none;user-select:none;-webkit-user-select:none}
+.zoom{display:flex;align-items:center;border:1px solid #C7CDD5;border-radius:8px;overflow:hidden}
+.zoom button{height:38px;min-width:38px;border:none;background:var(--card);font-size:16px;font-weight:700}
+.zoom span{font-family:var(--mono);font-size:13px;min-width:52px;text-align:center;border-left:1px solid #C7CDD5;border-right:1px solid #C7CDD5;line-height:38px}
+.zoom button.auto{font-size:12px;padding:0 10px;border-left:1px solid #C7CDD5}
+.zoom button.auto.on{background:var(--ink);color:#fff}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:10px 16px;font-size:12px;color:var(--muted);background:#F8F9FB}
 
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -190,7 +214,7 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
 </head>
 <body>
 <header class="top">
-  <div class="brand"><small>OUTBOUND</small><b>縦持ち 現在階</b></div>
+  <div class="brand"><small>OUTBOUND</small><b>縦持ちモニター</b></div>
   <nav class="tabs" aria-label="画面">
     <a href="#monitor" data-v="monitor">事務所モニター</a>
     <a href="#floor" data-v="floor">現場入力</a>
@@ -198,6 +222,7 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
   </nav>
   <div class="seg" role="group" aria-label="運用モード" id="modeSeg"><span>運用モード</span><button type="button" data-mode="manual">手動</button><button type="button" data-mode="auto">自動検知</button></div>
   <span class="sp"></span>
+  <div class="zoom" id="zoomCtl" role="group" aria-label="表示倍率"><button type="button" data-zoom="-1" aria-label="小さく">−</button><span id="zoomVal">100%</span><button type="button" data-zoom="1" aria-label="大きく">＋</button><button type="button" class="auto" data-zoom="auto">自動</button></div>
   <span id="conn" class="conn">接続中…</span>
   <span class="clock" id="clock">--:--</span>
   <button type="button" class="btn" id="btnSettings">設定</button>
@@ -207,9 +232,10 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
 <main>
   <!-- 事務所モニター -->
   <section class="view" id="v-monitor">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="stats"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;flex-shrink:0" id="stats"></div>
     <div class="mon">
       <div class="bld" aria-label="建物の断面">
+        <div id="unplaced"></div>
         <div class="bld-h"><div>階</div><div>残パレット</div><div>着車バース（最大4台）</div><div>スロープ（移動中）</div></div>
         <div id="floors"></div>
         <div class="legend" id="legend"></div>
@@ -218,7 +244,7 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
         <div id="sidePanel"></div>
         <div class="panel">
           <h2>本日の履歴</h2>
-          <div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table class="hist"><thead><tr><th>時刻</th><th>車両</th><th>階</th><th>内容</th><th>次</th></tr></thead><tbody id="hist"></tbody></table></div>
+          <div class="hist-wrap" style="overflow-x:auto;max-height:420px;overflow-y:auto"><table class="hist"><thead><tr><th>時刻</th><th>車両</th><th>階</th><th>内容</th><th>次</th></tr></thead><tbody id="hist"></tbody></table></div>
         </div>
       </div>
     </div>
@@ -525,7 +551,9 @@ async function arrive(id, floor, how) {
   const c = cfg();
   const manualOverride = c.mode === 'auto' && how !== 'auto';
   const det = detected(s.tag);
-  const load = floor === c.hub ? Number(cur.load || 0) : Number(cur.load || 0);
+  const load = Number(cur.load || 0);
+  S.day = setAt(S.day, `trucks/${id}`, { floor, status: 'at', since: Date.now(), load, loadAtArrival: load, loadedHere: null, remainHere: null, next: '', manual: manualOverride, manualDetect: manualOverride ? (det || '') : '', by: how || 'manual' });
+  scheduleRender();
   const ok = await fbPatch(Object.assign({
     [`${D()}/trucks/${id}`]: {
       floor, status: 'at', since: SV, load, loadAtArrival: load, loadedHere: null, remainHere: null, next: '',
@@ -604,6 +632,7 @@ let rq = false;
 function scheduleRender() { if (!rq) { rq = true; requestAnimationFrame(() => { rq = false; render(); }); } }
 
 function render() {
+  if (dragging) return;
   const c = cfg();
   if (bd && bd !== bdKeyOf(Date.now())) { connectDay(); return; }
   document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
@@ -615,6 +644,7 @@ function render() {
   if (states.length && states.every(x => x === 'ok')) { cn.className = 'conn ok'; cn.textContent = '接続中'; }
   else if (states.some(x => x === 'ng')) { cn.className = 'conn ng'; cn.textContent = '接続エラー'; }
   else { cn.className = 'conn'; cn.textContent = '接続中…'; }
+  applyLayout();
   if (view === 'monitor') renderMonitor();
   else if (view === 'floor') renderFloor();
   else if (view === 'assign') renderAssign();
@@ -630,7 +660,7 @@ function cardHtml(v, selected) {
   const bottom = (c.mode === 'auto' && t.manual)
     ? `<div class="mstrip">手動で配置中（受信機は${esc(v.det || '未検知')}）</div>`
     : `<div class="since">${t.since ? hhmm(t.since) + ' 着車・' + mins(t.since) + '分' : ''}${c.mode === 'manual' && v.det && v.det !== t.floor ? '・受信機:' + esc(v.det) : ''}</div>`;
-  return `<button type="button" class="${cls.join(' ')}" draggable="true" data-sel="${esc(s.id)}" data-drag="${esc(s.id)}" aria-label="${esc(s.no)} ${esc(s.driver || '未登録')}">
+  return `<button type="button" class="${cls.join(' ')}" data-sel="${esc(s.id)}" data-drag="${esc(s.id)}" aria-label="${esc(s.no)} ${esc(s.driver || '未登録')}">
     <div class="r1">${TRUCK_SVG}<b>${esc(s.no)}</b><span class="drv">${esc(s.driver || '未登録')}</span></div>
     <div class="tel">${TEL_SVG}<span>${esc(s.tel || '未登録')}</span></div>
     <div class="ld"><b>${load}</b><small>/ ${c.capacity}枚</small><span class="io">${esc(io)}</span></div>
@@ -676,7 +706,7 @@ function renderMonitor() {
       <div class="ramp">${moving.map(v => {
         const ni = floorIdx(v.t.next), fi = floorIdx(f);
         const arrow = v.t.next && ni >= 0 ? (ni < fi ? '↑' : '↓') : '・';
-        return `<button type="button" class="mv ${sel === v.s.id ? 'sel' : ''}" draggable="true" data-sel="${esc(v.s.id)}" data-drag="${esc(v.s.id)}">
+        return `<button type="button" class="mv ${sel === v.s.id ? 'sel' : ''}" data-sel="${esc(v.s.id)}" data-drag="${esc(v.s.id)}">
           <div class="a"><i>${arrow}</i><b>${esc(v.s.no)}</b><span>${esc(v.s.driver || '')}</span></div>
           <small>${esc(f)} → ${esc(v.t.next || '行き先未入力')}・${v.t.departedAt ? mins(v.t.departedAt) + '分前' : ''}</small>
           <small class="mono" style="color:var(--ink)">${esc(v.s.tel || '')}　積載${v.load}枚</small></button>`;
@@ -685,8 +715,8 @@ function renderMonitor() {
   }).join('');
 
   const notPlaced = vs.filter(v => !v.t.status);
+  $('unplaced').innerHTML = notPlaced.length ? `<div class="unpl"><b>未配置 ${notPlaced.length}台</b>${notPlaced.map(v => `<button type="button" class="${sel === v.s.id ? 'sel' : ''}" data-sel="${esc(v.s.id)}" data-drag="${esc(v.s.id)}">${esc(v.s.no)}${v.s.driver ? ' ' + esc(v.s.driver) : ''}</button>`).join('')}<span>押して右側で階を選ぶか、階の行へドラッグしてください</span></div>` : '';
   $('legend').innerHTML = `
-    ${notPlaced.length ? `<div style="color:var(--ink)">未配置：${notPlaced.map(v => `<button type="button" class="btn" style="height:30px;padding:0 10px;font-size:12px" data-sel="${esc(v.s.id)}" draggable="true" data-drag="${esc(v.s.id)}">${esc(v.s.no)}</button>`).join(' ')}（選んで右側で階を指定、または階へドラッグ）</div>` : ''}
     <div>残パレット：進捗管理表（縦持ち）の毎時入力値に、その後の現場報告を反映</div>
     <div>${c.caution}枚以上：黄色（注意）、${c.warn}枚以上：赤（警告）、最大積載 ${c.capacity}枚</div>
     <div>${c.mode === 'manual' ? '手動モード：カードはドラッグ・階ボタン・現場入力の「着車」でのみ移動（受信機は参考表示）' : '自動検知モード：受信機の検知で移動。手動で動かしたカードは紫の帯（次の動きで自動に戻る）'}</div>`;
@@ -823,8 +853,15 @@ function route() {
 window.addEventListener('hashchange', route);
 
 document.addEventListener('click', async e => {
+  if (suppressClick) { e.preventDefault(); e.stopPropagation(); return; }
   const q = s => e.target.closest(s);
   let el;
+  if ((el = q('[data-zoom]'))) {
+    const v = el.dataset.zoom;
+    if (v === 'auto') LS.set('zoom', 'auto');
+    else LS.set('zoom', Math.round(Math.min(1.6, Math.max(0.5, zoomNow() + Number(v) * 0.05)) * 100) / 100);
+    applyLayout(); return;
+  }
   if ((el = q('[data-mode]'))) { if (cfg().mode !== el.dataset.mode && await fbPatch({ 'config/mode': el.dataset.mode })) { S.config = Object.assign({}, S.config || {}, { mode: el.dataset.mode }); render(); toast(el.dataset.mode === 'auto' ? '自動検知モードにしました' : '手動モードにしました'); } return; }
   if ((el = q('[data-sel]'))) { sel = sel === el.dataset.sel ? null : el.dataset.sel; render(); return; }
   if ((el = q('[data-move]'))) { if (sel) await arrive(sel, el.dataset.move, 'manual'); return; }
@@ -866,18 +903,75 @@ function updateTotal(form) {
 }
 document.addEventListener('input', e => { const form = e.target.closest('form[data-form]'); if (form) updateTotal(form); });
 
-// ドラッグで階を変更
-document.addEventListener('dragstart', e => { const el = e.target.closest('[data-drag]'); if (el) { e.dataTransfer.setData('text/plain', el.dataset.drag); e.dataTransfer.effectAllowed = 'move'; } });
-document.addEventListener('dragover', e => { const row = e.target.closest('[data-drop]'); if (row) { e.preventDefault(); document.querySelectorAll('.frow.drop').forEach(r => r !== row && r.classList.remove('drop')); row.classList.add('drop'); } });
-document.addEventListener('dragleave', e => { const row = e.target.closest('[data-drop]'); if (row && !row.contains(e.relatedTarget)) row.classList.remove('drop'); });
-document.addEventListener('drop', async e => {
-  const row = e.target.closest('[data-drop]'); if (!row) return;
-  e.preventDefault(); row.classList.remove('drop');
-  const id = e.dataTransfer.getData('text/plain'); if (!id) return;
-  const t = truckState(id);
-  if (t && t.status === 'at' && t.floor === row.dataset.drop) return;
-  sel = id; await arrive(id, row.dataset.drop, 'manual');
+// ドラッグで階を変更（マウス・タッチ共通。ドラッグ中は画面の書き直しを止める）
+let drag = null, dragging = false, suppressClick = false;
+function dropRowAt(x, y) { const el = document.elementFromPoint(x, y); return el ? el.closest('[data-drop]') : null; }
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-drag]');
+  if (!el || e.button > 0 || view !== 'monitor') return;
+  drag = { id: el.dataset.drag, el, x: e.clientX, y: e.clientY, started: false };
 });
+document.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) return;
+    drag.started = true; dragging = true;
+    const r = drag.el.getBoundingClientRect(), z = zoomNow();
+    const g = drag.el.cloneNode(true);
+    g.classList.add('ghost'); g.classList.remove('sel');
+    g.style.zoom = z; g.style.width = (r.width / z) + 'px'; g.style.height = (r.height / z) + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g; drag.dx = e.clientX - r.left; drag.dy = e.clientY - r.top;
+    drag.el.classList.add('dragging');
+  }
+  e.preventDefault();
+  const z = zoomNow();
+  drag.ghost.style.left = ((e.clientX - drag.dx) / z) + 'px';
+  drag.ghost.style.top = ((e.clientY - drag.dy) / z) + 'px';
+  const row = dropRowAt(e.clientX, e.clientY);
+  document.querySelectorAll('.frow.drop').forEach(r => r !== row && r.classList.remove('drop'));
+  if (row) row.classList.add('drop');
+}, { passive: false });
+async function endDrag(e, cancel) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (!d.started) return;
+  d.ghost.remove(); d.el.classList.remove('dragging');
+  document.querySelectorAll('.frow.drop').forEach(r => r.classList.remove('drop'));
+  dragging = false; suppressClick = true; setTimeout(() => { suppressClick = false; }, 50);
+  const row = cancel ? null : dropRowAt(e.clientX, e.clientY);
+  if (row) {
+    const t = truckState(d.id);
+    if (!(t && t.status === 'at' && t.floor === row.dataset.drop)) { sel = d.id; await arrive(d.id, row.dataset.drop, 'manual'); }
+  }
+  render();
+}
+document.addEventListener('pointerup', e => endDrag(e, false));
+document.addEventListener('pointercancel', e => endDrag(e, true));
+
+// 表示倍率（事務所モニターは画面にぴったり収める）
+// 自動：横幅と、全ての階のカードが欠けずに収まる高さの両方から倍率を決める
+function autoZoom() {
+  const head = document.querySelector('header.top').offsetHeight;
+  const need = cfg().floors.length * 186 + 150 + (document.querySelector('.unpl') ? 50 : 0);
+  return Math.min(1.5, Math.max(0.5, Math.min(window.innerWidth / 1480, (window.innerHeight - head) / need)));
+}
+function zoomNow() { const z = LS.get('zoom', 'auto'); return z === 'auto' ? autoZoom() : z; }
+function applyLayout() {
+  const fit = view === 'monitor';
+  document.body.classList.toggle('fit', fit);
+  const main = document.querySelector('main');
+  const z = fit ? zoomNow() : 1;
+  main.style.zoom = z;
+  if (fit) {
+    const avail = window.innerHeight - document.querySelector('header.top').offsetHeight - ($('errBar').hidden ? 0 : $('errBar').offsetHeight);
+    main.style.height = Math.max(300, avail / z) + 'px';
+  } else main.style.height = '';
+  $('zoomCtl').style.display = fit ? '' : 'none';
+  $('zoomVal').textContent = Math.round(z * 100) + '%';
+  document.querySelector('#zoomCtl .auto').classList.toggle('on', LS.get('zoom', 'auto') === 'auto');
+}
+window.addEventListener('resize', applyLayout);
 
 $('flSel').onchange = () => { LS.set('myFloor', $('flSel').value); flSel = null; render(); };
 
