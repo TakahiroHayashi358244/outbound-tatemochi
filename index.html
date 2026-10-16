@@ -270,6 +270,7 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
 <dialog id="dlg">
   <h3>設定</h3>
   <div class="fld"><label for="sUrl">データベースURL（この端末のみ）</label><input id="sUrl"></div>
+  <div class="fld"><label for="sKey">APIキー（匿名ログイン用・この端末のみ）</label><input id="sKey" placeholder="AIza..."></div>
   <div class="row2">
     <div class="fld"><label for="sFloors">階（上から順、カンマ区切り）</label><input id="sFloors"></div>
     <div class="fld"><label for="sHub">集約階</label><input id="sHub"></div>
@@ -310,6 +311,9 @@ const TEL_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" str
 const TRUCK_SVG = '<svg width="28" height="20" viewBox="0 0 30 22" fill="none" stroke="#17202B" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="17" height="12" rx="1.5"></rect><path d="M18 7h5.5l4.5 4.5V15H18z"></path><circle cx="7" cy="17.5" r="2.5" fill="#FFFFFF"></circle><circle cx="22.5" cy="17.5" r="2.5" fill="#FFFFFF"></circle></svg>';
 
 let dbUrl = LS.get('url', DEFAULT_URL);
+// Firebaseのウェブ API キー（匿名ログイン用。プロジェクトの設定 > マイアプリ の apiKey）
+const DEFAULT_API_KEY = 'AIzaSyD01thIqlq4VQpSe8fxU-0a_M9ynO6p0IM';
+let apiKey = LS.get('apiKey', DEFAULT_API_KEY);
 const S = { config: null, sheet: null, tags: {}, receivers: {}, obs: {}, day: {}, prevAssign: null };
 let view = 'monitor', sel = null, flSel = null;
 let bd = null;                 // 現在の業務日キー
@@ -330,6 +334,38 @@ function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add(
 // Firebase（REST・ストリーミング）
 // =====================================================================
 function base() { return dbUrl.trim().replace(/\/+$/, ''); }
+
+// ---------- 匿名ログイン（データベースのルールが auth != null のため） ----------
+const auth = { idToken: null, exp: 0, refresh: LS.get('refreshToken', null), busy: null };
+async function getToken(force) {
+  if (!apiKey) return null;
+  if (!force && auth.idToken && Date.now() < auth.exp - 120000) return auth.idToken;
+  if (auth.busy) return auth.busy;
+  auth.busy = (async () => {
+    try {
+      if (auth.refresh) {
+        const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(auth.refresh)
+        });
+        if (r.ok) {
+          const j = await r.json();
+          auth.idToken = j.id_token; auth.refresh = j.refresh_token; auth.exp = Date.now() + Number(j.expires_in) * 1000;
+          LS.set('refreshToken', auth.refresh); return auth.idToken;
+        }
+      }
+      const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ returnSecureToken: true })
+      });
+      if (!r.ok) { showErr('匿名ログインに失敗しました（APIキー、またはAuthenticationの「匿名」が有効かを確認してください）'); return null; }
+      const j = await r.json();
+      auth.idToken = j.idToken; auth.refresh = j.refreshToken; auth.exp = Date.now() + Number(j.expiresIn) * 1000;
+      LS.set('refreshToken', auth.refresh); return auth.idToken;
+    } catch { return null; } finally { auth.busy = null; }
+  })();
+  return auth.busy;
+}
+async function authQ() { const t = await getToken(); return t ? '?auth=' + encodeURIComponent(t) : ''; }
 function setAt(obj, path, val) {
   const ps = path.split('/').filter(Boolean);
   if (!ps.length) return val;
@@ -339,10 +375,16 @@ function setAt(obj, path, val) {
   if (val === null) delete cur[ps[ps.length - 1]]; else cur[ps[ps.length - 1]] = val;
   return obj;
 }
-function subscribe(key, path) {
+const subGen = {};
+async function subscribe(key, path) {
+  const gen = subGen[key] = (subGen[key] || 0) + 1;
   if (streams[key]) streams[key].close();
   conn[key] = 'connecting';
-  const es = new EventSource(`${base()}/${ROOT}/${path}.json`);
+  const q = await authQ();
+  if (subGen[key] !== gen) return;          // 待っている間に新しい購読が始まった
+  if (streams[key]) streams[key].close();
+  const es = new EventSource(`${base()}/${ROOT}/${path}.json${q}`);
+  es._path = path;
   streams[key] = es;
   const apply = (ev, patch) => {
     let m; try { m = JSON.parse(ev.data); } catch { return; }
@@ -356,7 +398,8 @@ function subscribe(key, path) {
   es.addEventListener('put', ev => apply(ev, false));
   es.addEventListener('patch', ev => apply(ev, true));
   es.addEventListener('keep-alive', () => { conn[key] = 'ok'; });
-  es.addEventListener('cancel', () => { conn[key] = 'ng'; showErr('データベースへのアクセスが拒否されました（ルールの設定を確認してください）'); es.close(); });
+  es.addEventListener('cancel', () => { conn[key] = 'ng'; showErr(apiKey ? 'データベースへのアクセスが拒否されました（ルールの設定を確認してください）' : 'データベースへのアクセスが拒否されました。設定画面で「APIキー」を入力してください'); es.close(); });
+  es.addEventListener('auth_revoked', async () => { es.close(); await getToken(true); subscribe(key, path); });
   es.onerror = () => { conn[key] = 'ng'; };
 }
 // 常時接続（ストリーミング）は2本だけにする（ブラウザの同時接続数の上限対策）。
@@ -364,8 +407,8 @@ function subscribe(key, path) {
 const POLL = [['config', 'config'], ['sheet', 'sheet'], ['tags', 'tags'], ['receivers', 'receivers']];
 async function poll(key, path) {
   try {
-    const res = await fetch(`${base()}/${ROOT}/${path}.json`, { cache: 'no-store' });
-    if (res.status === 401) { conn[key] = 'ng'; showErr('データベースへのアクセスが拒否されました（ルールの設定を確認してください）'); return; }
+    const res = await fetch(`${base()}/${ROOT}/${path}.json${await authQ()}`, { cache: 'no-store' });
+    if (res.status === 401) { conn[key] = 'ng'; showErr(apiKey ? 'データベースへのアクセスが拒否されました（ルールの設定を確認してください）' : 'データベースへのアクセスが拒否されました。設定画面で「APIキー」を入力してください'); return; }
     if (!res.ok) throw new Error();
     const v = await res.json();
     S[key] = v == null ? ((key === 'config' || key === 'sheet') ? null : {}) : v;
@@ -375,6 +418,7 @@ async function poll(key, path) {
 }
 function pollAll() { POLL.forEach(([k, p]) => poll(k, p)); }
 let pollTimer = null;
+setInterval(async () => { if (!apiKey) return; await getToken(true); for (const [k, es] of Object.entries(streams)) subscribe(k, es._path); }, 50 * 60 * 1000);
 function connectAll() {
   $('errBar').hidden = true;
   pollAll();
@@ -386,11 +430,11 @@ function connectDay() {
   bd = bdKeyOf(Date.now());
   S.day = {}; S.prevAssign = null;
   subscribe('day', `day/${bd}`);
-  fetch(`${base()}/${ROOT}/day/${prevBd(bd)}/assign.json`).then(r => r.ok ? r.json() : null).then(v => { S.prevAssign = v || {}; scheduleRender(); }).catch(() => {});
+  authQ().then(q => fetch(`${base()}/${ROOT}/day/${prevBd(bd)}/assign.json${q}`)).then(r => r.ok ? r.json() : null).then(v => { S.prevAssign = v || {}; scheduleRender(); }).catch(() => {});
 }
 async function fbPatch(obj) {
   try {
-    const res = await fetch(`${base()}/${ROOT}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+    const res = await fetch(`${base()}/${ROOT}.json${await authQ()}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
     if (!res.ok) throw new Error(res.status === 401 ? 'アクセスが拒否されました' : 'HTTP ' + res.status);
     return true;
   } catch (e) { showErr('保存に失敗しました：' + e.message); return false; }
@@ -857,7 +901,7 @@ $('asSave').onclick = async () => {
 // 設定
 $('btnSettings').onclick = () => {
   const c = cfg();
-  $('sUrl').value = dbUrl; $('sFloors').value = c.floors.join(','); $('sHub').value = c.hub;
+  $('sUrl').value = dbUrl; $('sKey').value = apiKey; $('sFloors').value = c.floors.join(','); $('sHub').value = c.hub;
   $('sCap').value = c.capacity; $('sReset').value = c.resetHour; $('sCaut').value = c.caution; $('sWarn').value = c.warn;
   $('sThr').value = c.detectThr; $('sTmo').value = c.detectTimeout;
   $('dlg').showModal();
@@ -871,7 +915,10 @@ $('sSave').onclick = async () => {
     caution: Math.max(1, +$('sCaut').value || 8), warn: Math.max(1, +$('sWarn').value || 10),
     detectThr: +$('sThr').value || -95, detectTimeout: Math.max(5, +$('sTmo').value || 20)
   };
-  const urlChanged = $('sUrl').value.trim() !== dbUrl;
+  const keyChanged = $('sKey').value.trim() !== apiKey;
+  apiKey = $('sKey').value.trim(); LS.set('apiKey', apiKey);
+  if (keyChanged) { auth.idToken = null; auth.refresh = null; LS.set('refreshToken', null); }
+  const urlChanged = $('sUrl').value.trim() !== dbUrl || keyChanged;
   dbUrl = $('sUrl').value.trim() || DEFAULT_URL; LS.set('url', dbUrl);
   $('dlg').close();
   if (urlChanged) { for (const k of Object.keys(streams)) streams[k].close(); Object.assign(S, { config: null, sheet: null, tags: {}, receivers: {}, obs: {}, day: {} }); connectAll(); }
