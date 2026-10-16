@@ -236,7 +236,7 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
     <div class="mon">
       <div class="bld" aria-label="建物の断面">
         <div id="unplaced"></div>
-        <div class="bld-h"><div>階</div><div>残パレット</div><div>着車バース（最大4台）</div><div>スロープ（移動中）</div></div>
+        <div class="bld-h"><div>階</div><div>残パレット</div><div>着車バース（最大4台）</div><div>移動中</div></div>
         <div id="floors"></div>
         <div class="legend" id="legend"></div>
       </div>
@@ -458,7 +458,16 @@ function connectDay() {
   subscribe('day', `day/${bd}`);
   authQ().then(q => fetch(`${base()}/${ROOT}/day/${prevBd(bd)}/assign.json${q}`)).then(r => r.ok ? r.json() : null).then(v => { S.prevAssign = v || {}; scheduleRender(); }).catch(() => {});
 }
+// 書き込み内容を手元の表示にも即反映（保存完了を待たずに画面を更新）
+function applyLocal(obj) {
+  const pre = `day/${bd}/`;
+  const fix = v => (v && typeof v === 'object') ? (v['.sv'] ? Date.now() : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fix(x)]))) : v;
+  let hit = false;
+  for (const [k, v] of Object.entries(obj)) if (bd && k.startsWith(pre)) { S.day = setAt(S.day, k.slice(pre.length), fix(v)); hit = true; }
+  if (hit) scheduleRender();
+}
 async function fbPatch(obj) {
+  applyLocal(obj);
   try {
     const res = await fetch(`${base()}/${ROOT}.json${await authQ()}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
     if (!res.ok) throw new Error(res.status === 401 ? 'アクセスが拒否されました' : 'HTTP ' + res.status);
@@ -533,11 +542,7 @@ function truckView(s) {
   const load = Number(t.load || 0);
   let io = '';
   if (t.status === 'at') io = atHub ? '荷降ろし中' : (t.loadedHere != null ? `積${t.loadedHere} / 残${t.remainHere ?? '-'}` : '積込中');
-  let hint = '';
-  if (t.status === 'at' && !t.next) {
-    if (atHub) { const b = bestPickup(); if (b) hint = `おすすめ：${b.f}（残${b.n}枚）`; }
-    else hint = `積んだら ${c.hub}（集約階）へ`;
-  }
+  const hint = '';
   const det = detected(s.tag);
   return { s, t, atHub, load, io, hint, det, unreg: !s.driver };
 }
@@ -562,13 +567,15 @@ async function arrive(id, floor, how) {
   }, logEntry({ no: s.no, floor, type: 'arrive', io: how === 'auto' ? '着車（自動）' : '着車', next: '' })));
   if (ok && how !== 'auto') toast(`${s.no} を ${floor} に移動しました`);
 }
-async function depart(id) {
+async function depart(id, nextOverride) {
   const s = slots().find(x => x.id === id); const t = truckState(id); if (!s || !t) return;
   const c = cfg();
+  const next = nextOverride !== undefined ? nextOverride : (t.next || '');
   const patch = Object.assign({
     [`${D()}/trucks/${id}/status`]: 'moving', [`${D()}/trucks/${id}/departedAt`]: SV,
+    [`${D()}/trucks/${id}/next`]: next,
     [`${D()}/trucks/${id}/manual`]: c.mode === 'auto' ? false : !!t.manual
-  }, logEntry({ no: s.no, floor: t.floor, type: 'depart', io: '出発', next: t.next || '' }));
+  }, logEntry({ no: s.no, floor: t.floor, type: 'depart', io: '出発', next }));
   if (t.floor === c.hub) patch[`${D()}/trucks/${id}/load`] = 0;
   if (await fbPatch(patch)) toast(`${s.no} が出発しました`);
 }
@@ -695,20 +702,22 @@ function renderMonitor() {
     const r = remainOf(f);
     const lv = hub ? '' : level(r.n);
     const remCell = hub
-      ? `<div class="rem hub"><b class="mono" style="font-size:22px">—</b><small>集約階</small></div>`
+      ? `<div class="rem hub"><b class="mono" style="font-size:22px">—</b></div>`
       : `<div class="rem ${lv} ${r.n === 0 ? 'zero' : ''}"><div class="n"><b>${r.n ?? '-'}</b><span style="font-size:13px">枚</span>${lv ? `<span class="lv ${lv}">${lv === 'warn' ? '警告' : '注意'}</span>` : ''}</div><div class="bar"><i style="width:${Math.round(Math.min(r.n || 0, c.capacity) / c.capacity * 100)}%"></i></div><small>${esc(r.note)}</small></div>`;
     const here = vs.filter(v => v.t.status === 'at' && v.t.floor === f);
-    const moving = vs.filter(v => v.t.status === 'moving' && v.t.floor === f);
+    // 移動中は行き先の階に表示（行き先未入力のときは出発した階）
+    const moving = vs.filter(v => v.t.status === 'moving' && (floorIdx(v.t.next) >= 0 ? v.t.next : v.t.floor) === f);
     return `<div class="frow" data-drop="${esc(f)}">
       <div class="flab"><b>${esc(f)}</b><span class="rx ${rok === false ? 'down' : ''}">受信機 ${rok == null ? 'なし' : rok ? 'OK' : '停止'}</span></div>
       ${remCell}
       <div class="lane">${here.map(v => cardHtml(v, sel === v.s.id)).join('') || '<div class="none">着車なし</div>'}</div>
       <div class="ramp">${moving.map(v => {
-        const ni = floorIdx(v.t.next), fi = floorIdx(f);
-        const arrow = v.t.next && ni >= 0 ? (ni < fi ? '↑' : '↓') : '・';
+        const ni = floorIdx(v.t.next), oi = floorIdx(v.t.floor);
+        const arrow = ni >= 0 && oi >= 0 && ni !== oi ? (ni < oi ? '↑' : '↓') : '・';
         return `<button type="button" class="mv ${sel === v.s.id ? 'sel' : ''}" data-sel="${esc(v.s.id)}" data-drag="${esc(v.s.id)}">
           <div class="a"><i>${arrow}</i><b>${esc(v.s.no)}</b><span>${esc(v.s.driver || '')}</span></div>
-          <small>${esc(f)} → ${esc(v.t.next || '行き先未入力')}・${v.t.departedAt ? mins(v.t.departedAt) + '分前' : ''}</small>
+          <div style="font-size:13px;font-weight:700;color:#8F470B;margin:2px 0">${v.t.next ? esc(v.t.next) + 'へ移動中' : '行き先未入力'}</div>
+          <small>${esc(v.t.floor)}から出発・${v.t.departedAt ? mins(v.t.departedAt) + '分前' : ''}</small>
           <small class="mono" style="color:var(--ink)">${esc(v.s.tel || '')}　積載${v.load}枚</small></button>`;
       }).join('')}</div>
     </div>`;
@@ -733,9 +742,8 @@ function inputForm(v, ctx) {
   const fbtn = c.floors.map(f => {
     if (f === t.floor) return `<button type="button" class="fb here" disabled><b>${esc(f)}</b><small>現在地</small></button>`;
     const isHub = f === c.hub; const r = remainOf(f); const lv = isHub ? '' : level(r.n);
-    const rec = (!atHub && isHub) || (atHub && bestPickup() && bestPickup().f === f);
     const on = t.next === f;
-    return `<button type="button" class="fb ${on ? 'on' : ''} ${lv === 'warn' ? 'w' : lv === 'caut' ? 'c' : ''}" data-next="${esc(f)}"><b>${esc(f)}</b><small>${isHub ? '集約' : '残' + (r.n ?? '-')}${lv === 'warn' ? ' 警告' : lv === 'caut' ? ' 注意' : ''}${rec ? '・おすすめ' : ''}</small></button>`;
+    return `<button type="button" class="fb ${on ? 'on' : ''} ${lv === 'warn' ? 'w' : lv === 'caut' ? 'c' : ''}" data-next="${esc(f)}"><b>${esc(f)}</b><small>${isHub ? '' : '残' + (r.n ?? '-')}${lv === 'warn' ? ' 警告' : lv === 'caut' ? ' 注意' : ''}</small></button>`;
   }).join('') + `<button type="button" class="fb ${t.next === 'その他' ? 'on' : ''}" data-next="その他"><b style="font-family:inherit;font-size:14px">その他</b></button>`;
   return `<form class="fld" data-form="${esc(s.id)}" data-ctx="${ctx}" style="gap:14px" onsubmit="return false">
     ${t.status === 'at' && !atHub ? `<div class="row2">
@@ -744,7 +752,7 @@ function inputForm(v, ctx) {
     </div>
     <div class="tot"><span>積載中（自動計算）</span><b data-total>${curLoad}</b><span>/ ${c.capacity}枚</span></div>` : ''}
     ${t.status === 'at' && atHub ? `<div class="tot"><span>荷降ろし中（出発時に積載0枚になります）</span><b>${Number(t.load || 0)}</b><span>枚</span></div>` : ''}
-    ${t.status === 'at' ? `<div class="fld"><div class="lbl" style="display:flex">次の行き先<span style="margin-left:auto;color:var(--accent-d)">${esc(v.hint || '')}</span></div><div class="fgrid">${fbtn}</div><input type="hidden" name="next" value="${esc(t.next || '')}"></div>` : ''}
+    ${t.status === 'at' ? `<div class="fld"><div class="lbl">次の行き先</div><div class="fgrid">${fbtn}</div><input type="hidden" name="next" value="${esc(t.next || '')}"></div>` : ''}
     <div class="fld"><label for="in-t-${ctx}">連絡先（電話番号・本日のみ有効）</label><div class="telrow"><input id="in-t-${ctx}" name="tel" inputmode="tel" value="${esc(s.tel || '')}" placeholder="090-0000-0000"><a href="tel:${esc((s.tel || '').replace(/[^\d+]/g, ''))}">電話</a></div></div>
     <div class="acts">
       <button type="button" class="btn pri" data-save="${esc(s.id)}">保存</button>
@@ -887,7 +895,7 @@ document.addEventListener('click', async e => {
   if ((el = q('[data-depart]'))) {
     const form = el.closest('form'); const g = n => { const i = form.querySelector(`[name=${n}]`); return i ? i.value.trim() : undefined; };
     await saveInput(el.dataset.depart, g('loaded'), g('remain'), g('next'), g('tel'));
-    await depart(el.dataset.depart);
+    await depart(el.dataset.depart, g('next'));
     document.activeElement && document.activeElement.blur(); return;
   }
   if ((el = q('[data-copy]'))) {
