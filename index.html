@@ -227,17 +227,58 @@ dialog details.conn-set summary{cursor:pointer;font-size:13px;color:var(--muted)
 dialog .fld{margin-bottom:12px}
 dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;border-radius:8px;width:100%}
 @media (max-width:640px){
-  header.top{padding:10px 12px}
   main{padding:12px}
-  .clock{font-size:18px}
 }
+/* ---------- スマホ ---------- */
+@media (max-width:759px){
+  header.top{padding:8px 12px;gap:8px 10px}
+  .brand small,#modeSeg,#stats,#zoomCtl,nav.tabs .lg{display:none}
+  .brand b{font-size:17px}
+  .clock{font-size:17px}
+  #btnSettings{height:34px;padding:0 10px;font-size:13px}
+  nav.tabs{order:10;flex-basis:100%}
+  nav.tabs a{flex:1;text-align:center;padding:9px 4px;font-size:14px}
+  .toast{top:110px;bottom:auto;max-width:calc(100% - 32px);text-align:center}
+}
+.m-rem{display:grid;grid-template-columns:repeat(var(--n,5),minmax(0,1fr));gap:6px;margin-bottom:12px}
+.m-rem div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center}
+.m-rem div b{display:block;font-family:var(--mono);font-size:15px}
+.m-rem div span{font-family:var(--mono);font-size:20px;font-weight:700}
+.m-rem div.warn{background:var(--red-s);border-color:#F0B9B3}.m-rem div.warn span{color:var(--red)}
+.m-rem div.caut{background:#FFF6D9;border-color:#EBD58A}.m-rem div.caut span{color:var(--yel)}
+.m-cap{font-size:12px;color:var(--muted);margin:0 2px 6px}
+.m-list{display:flex;flex-direction:column;gap:10px}
+.m-row{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;background:var(--card);border:1px solid var(--line);border-left:6px solid #C7CDD5;border-radius:12px;padding:12px 14px;font-family:inherit;color:var(--ink)}
+.m-row.st-at{border-left-color:var(--ok)}.m-row.st-mv{border-left-color:var(--orange-b);background:#FFFBF6}
+.m-row .nm b{font-size:18px}.m-row .nm small{margin-left:8px;font-size:13px;color:var(--muted)}
+.m-row .st{grid-column:1;font-size:17px;font-weight:700}
+.m-row.st-at .st{color:var(--ok)}.m-row.st-mv .st{color:var(--orange)}.m-row.st-none .st{color:var(--muted)}
+.m-row .ld{grid-row:1/3;grid-column:2;text-align:right;align-self:center}
+.m-row .ld b{font-family:var(--mono);font-size:24px}.m-row .ld small{font-size:12px;color:var(--muted);display:block}
+.m-row .nx2{grid-column:1/3;font-size:13px}.m-row .nx2.miss{color:var(--red);font-weight:700}
+.m-det{display:flex;flex-direction:column;gap:14px}
+.m-back{all:unset;cursor:pointer;font-size:15px;font-weight:700;color:var(--accent);padding:4px 0}
+.m-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.m-head b{font-size:24px}.m-head small{font-size:14px;color:var(--muted)}
+.m-head .where{margin-left:auto;font-size:15px;font-weight:700;background:var(--ink);color:#fff;padding:5px 12px;border-radius:8px}
+.m-fg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.m-fg button{min-height:58px;border-radius:10px;border:1px solid #C7CDD5;background:var(--card);font-family:var(--mono);font-size:20px;font-weight:700}
+.m-fg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.m-det details summary{font-size:14px;color:var(--muted);cursor:pointer;padding:6px 0}
+.m-det .row2{grid-template-columns:1fr}
+.m-det .step button{width:58px;height:58px;font-size:26px}
+.m-det .step input{height:58px;font-size:28px}
+.m-det .fb{min-height:62px}.m-det .fb b{font-size:20px}
+.m-det .telrow input,.m-det .telrow a{height:50px}
+.m-det .acts .btn.big{height:64px;font-size:20px}
+.m-det .lbl,.m-det label{font-size:15px;font-weight:700}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="brand"><small>OUTBOUND</small><b>縦持ちモニター</b></div>
   <nav class="tabs" aria-label="画面">
-    <a href="#monitor" data-v="monitor">事務所モニター</a>
+    <a href="#monitor" data-v="monitor"><span class="lg">事務所</span>モニター</a>
     <a href="#summary" data-v="summary">サマリー</a>
     <a href="#assign" data-v="assign">本日の登録<span class="badge-n" id="asBadge" hidden></span></a>
   </nav>
@@ -270,6 +311,9 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
       </div>
     </div>
   </section>
+
+  <!-- スマホ用（画面幅が狭いとき、事務所モニターの代わりに表示） -->
+  <section class="view" id="v-mob"><div id="mobBody"></div></section>
 
   <!-- サマリー -->
   <section class="view" id="v-summary"><div class="sum-wrap" id="sumBody"></div></section>
@@ -671,7 +715,8 @@ function render() {
   const c = cfg();
   if (bd && bd !== bdKeyOf(Date.now())) { connectDay(); return; }
   document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
-  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + view));
+  const vid = view === 'monitor' && isMob() ? 'mob' : view;
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + vid));
   $('modeSeg').style.display = view === 'floor' ? 'none' : '';   // 現場の端末ではモード切替を出さない
   document.querySelectorAll('#modeSeg button').forEach(b => { const on = b.dataset.mode === c.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
   const states = Object.values(conn);
@@ -680,7 +725,8 @@ function render() {
   else if (states.some(x => x === 'ng')) { cn.className = 'conn ng'; cn.textContent = '接続エラー'; }
   else { cn.className = 'conn'; cn.textContent = '接続中…'; }
   applyLayout();
-  if (view === 'monitor') renderMonitor();
+  if (vid === 'mob') renderMobile();
+  else if (view === 'monitor') renderMonitor();
   else if (view === 'floor') renderFloor();
   else if (view === 'assign') renderAssign();
   else if (view === 'summary') renderSummary();
@@ -763,6 +809,54 @@ function renderSummary() {
       </div>`).join('') : '<div class="muted">本日の登録がありません</div>'}
     </div>
     <div class="muted">集計対象：出発時点の「この階で積んだ枚数」。集約階での荷降ろしは含みません。</div>`);
+}
+
+// ---------- スマホ ----------
+function isMob() { return window.innerWidth < 760; }
+function statusText(t) {
+  if (t.status === 'at') return `${t.floor} 着車中`;
+  if (t.status === 'moving') return floorIdx(t.next) >= 0 ? `${t.next}へ移動中` : `${t.floor}から移動中`;
+  return '未配置';
+}
+function renderMobile() {
+  const el = $('mobBody');
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // 入力中は再描画しない
+  const c = cfg();
+  const vs = slots().map(truckView);
+  const v = vs.find(x => x.s.id === sel);
+  if (v) {
+    const { s, t } = v;
+    const fg = (label) => `<div class="fld"><div class="lbl">${label}</div><div class="m-fg">${c.floors.map(f => `<button type="button" class="${t.status === 'at' && t.floor === f ? 'on' : ''}" data-move="${esc(f)}">${esc(f)}</button>`).join('')}</div></div>`;
+    setHtml(el, `<div class="m-det">
+      <button type="button" class="m-back" data-mback="1">← 一覧へ戻る</button>
+      <div class="m-head"><b>${esc(s.no)}</b><small>${esc(s.driver || '未登録')}</small><span class="where">${esc(statusText(t))}</span></div>
+      ${t.status === 'moving' ? `<div class="muted">${esc(t.floor)}から出発・${t.departedAt ? mins(t.departedAt) + '分前' : ''}</div>` : ''}
+      ${!t.status ? fg('着車した階を選ぶ') : ''}
+      <div class="panel">${inputForm(v, 'p')}</div>
+      ${t.status === 'moving' ? `<details><summary>予定と違う階に着いた</summary>${fg('着車した階')}</details>` : ''}
+      ${t.status === 'at' ? `<details><summary>着車した階を訂正する</summary>${fg('正しい階')}</details>` : ''}
+    </div>`);
+    return;
+  }
+  const remCells = c.floors.map(f => {
+    if (f === c.hub) return `<div><b>${esc(f)}</b><span>—</span></div>`;
+    const r = remainOf(f), lv = level(r.n);
+    return `<div class="${lv}"><b>${esc(f)}</b><span>${r.n ?? '-'}</span></div>`;
+  }).join('');
+  setHtml(el, `
+    <div class="m-cap">各階の残パレット（枚）</div>
+    <div class="m-rem" style="--n:${c.floors.length}">${remCells}</div>
+    <div class="m-cap">トラック（押すと出発・到着・入力ができます）</div>
+    <div class="m-list">${vs.map(({ s, t, load }) => {
+      const cls = t.status === 'at' ? 'st-at' : t.status === 'moving' ? 'st-mv' : 'st-none';
+      const nx = t.status === 'at' ? (t.next ? `<div class="nx2">次 → ${esc(t.next)}</div>` : `<div class="nx2 miss">行き先 未入力</div>`) : t.status === 'moving' ? `<div class="nx2">${esc(t.floor)}から出発・${t.departedAt ? mins(t.departedAt) + '分前' : ''}</div>` : '';
+      return `<button type="button" class="m-row ${cls}" data-msel="${esc(s.id)}">
+        <div class="nm"><b>${esc(s.no)}</b><small>${esc(s.driver || '未登録')}</small></div>
+        <div class="st">${esc(statusText(t))}</div>
+        <div class="ld"><b>${load}</b><small>/ ${c.capacity}枚</small></div>
+        ${nx}
+      </button>`;
+    }).join('') || '<div class="muted">本日の登録がありません。「本日の登録」タブで登録してください。</div>'}</div>`);
 }
 
 function renderMonitor() {
@@ -950,6 +1044,8 @@ document.addEventListener('click', async e => {
     applyLayout(); return;
   }
   if ((el = q('[data-mode]'))) { if (cfg().mode !== el.dataset.mode && await fbPatch({ 'config/mode': el.dataset.mode })) { S.config = Object.assign({}, S.config || {}, { mode: el.dataset.mode }); render(); toast(el.dataset.mode === 'auto' ? '自動検知モードにしました' : '手動モードにしました'); } return; }
+  if ((el = q('[data-msel]'))) { sel = el.dataset.msel; render(); window.scrollTo(0, 0); return; }
+  if ((el = q('[data-mback]'))) { sel = null; render(); return; }
   if ((el = q('[data-sel]'))) { sel = sel === el.dataset.sel ? null : el.dataset.sel; render(); return; }
   if ((el = q('[data-move]'))) { if (sel) await arrive(sel, el.dataset.move, 'manual'); return; }
   if ((el = q('[data-moving]'))) { if (sel) await setMoving(sel); return; }
@@ -1052,7 +1148,7 @@ function autoZoom() {
 }
 function zoomNow() { const z = LS.get('zoom', 'auto'); return z === 'auto' ? autoZoom() : z; }
 function applyLayout() {
-  const fit = view === 'monitor';
+  const fit = view === 'monitor' && !isMob();
   document.body.classList.toggle('fit', fit);
   const main = document.querySelector('main');
   const z = fit ? zoomNow() : 1;
@@ -1065,7 +1161,8 @@ function applyLayout() {
   $('zoomVal').textContent = Math.round(z * 100) + '%';
   document.querySelector('#zoomCtl .auto').classList.toggle('on', LS.get('zoom', 'auto') === 'auto');
 }
-window.addEventListener('resize', applyLayout);
+let lastMob = null;
+window.addEventListener('resize', () => { if (isMob() !== lastMob) { lastMob = isMob(); render(); } else applyLayout(); });
 
 $('flSel').onchange = () => { LS.set('myFloor', $('flSel').value); flSel = null; render(); };
 
