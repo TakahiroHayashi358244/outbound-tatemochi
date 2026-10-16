@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>縦持ち 現在階</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F4F6;--card:#FFFFFF;--ink:#17202B;--muted:#5B6573;--faint:#8A93A0;--line:#DCE0E5;--line2:#EEF1F5;
+  --accent:#1D5FBF;--accent-d:#164A96;--accent-s:#DCE7F8;--blue-s:#E8EEF9;
+  --ok:#1E7A44;--ok-s:#E6F2EB;--orange:#8F470B;--orange-b:#E39A55;--orange-s:#FDF0E3;
+  --red:#A3271C;--red-b:#C0392B;--red-s:#FCE8E6;--yel:#5C4300;--yel-b:#D9A21B;--yel-s:#FFF6D6;
+  --purple:#5B4BC4;--purple-d:#3F3394;--purple-s:#F1EFFB;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 'Noto Sans JP',system-ui,sans-serif}
+button{font:inherit;cursor:pointer;color:inherit}
+button:disabled{cursor:default;opacity:.45}
+input,select{font:inherit;color:inherit}
+a{color:var(--accent)}
+.mono{font-family:var(--mono)}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.brand small{display:block;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.brand b{font-size:20px}
+nav.tabs{display:flex;gap:4px;background:var(--line2);padding:3px;border-radius:9px}
+nav.tabs a{padding:7px 14px;border-radius:7px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:500}
+nav.tabs a.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.sp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;font-size:13px;white-space:nowrap}
+.pill b{font-family:var(--mono);font-size:15px}
+.p-gray{background:var(--line2)}.p-ok{background:var(--ok-s);color:var(--ok)}.p-or{background:var(--orange-s);color:var(--orange)}
+.p-red{background:var(--red-s);color:var(--red)}.p-blue{background:var(--blue-s);color:var(--accent-d)}
+.clock{font-family:var(--mono);font-size:24px;font-weight:700}
+.btn{height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--accent);background:var(--card);color:var(--accent);font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.big{height:52px;font-size:17px;justify-content:center}
+.badge-n{font-size:12px;color:#fff;background:var(--red-b);border-radius:10px;padding:1px 7px}
+.seg{display:flex;border:1px solid #C7CDD5;border-radius:8px;overflow:hidden;align-items:center}
+.seg span{font-size:12px;color:var(--muted);padding:0 10px}
+.seg button{height:38px;padding:0 13px;border:none;border-left:1px solid #C7CDD5;background:var(--card);color:var(--muted);font-size:14px}
+.seg button.on{background:var(--ink);color:#fff;font-weight:700}
+.conn{font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;background:var(--line2);color:var(--muted)}
+.conn.ok{background:var(--ok-s);color:var(--ok)}.conn.ng{background:var(--red-s);color:var(--red)}
+.errbar{background:var(--red-s);color:var(--red);font-weight:700;padding:10px 20px;border-bottom:1px solid #F3C4BF}
+main{max-width:1480px;margin:0 auto;padding:18px 20px 40px}
+.view{display:none}.view.on{display:block}
+
+/* ---------- 事務所モニター ---------- */
+.mon{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
+.bld{flex:999 1 760px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.side{flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.bld-h,.frow{display:grid;grid-template-columns:88px 150px minmax(0,1fr) 172px}
+.bld-h{background:#F8F9FB;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.bld-h div{padding:8px 12px}
+.bld-h div:last-child,.ramp{border-left:2px dashed #C7CDD5}
+.frow{border-bottom:1px solid var(--line);height:196px;overflow:hidden}
+.frow.drop{outline:3px solid var(--accent);outline-offset:-3px;background:var(--blue-s)}
+.flab{background:var(--ink);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.flab b{font-family:var(--mono);font-size:32px}
+.flab .rx{font-size:11px;color:#B9C2CE}
+.flab .rx.down{color:#fff;background:var(--red-b);padding:1px 6px;border-radius:4px;font-weight:700}
+.rem{padding:12px;display:flex;flex-direction:column;justify-content:center;gap:6px;border-right:1px solid var(--line)}
+.rem .n{display:flex;align-items:baseline;gap:4px}
+.rem .n b{font-family:var(--mono);font-size:34px}
+.rem .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.rem .bar i{display:block;height:6px;border-radius:3px;background:#7E8A99}
+.rem small{font-size:11px;color:var(--muted)}
+.rem.warn{background:var(--red-s);color:var(--red)}.rem.warn .bar i{background:var(--red-b)}
+.rem.caut{background:var(--yel-s);color:var(--yel)}.rem.caut .bar i{background:var(--yel-b)}
+.rem.zero{color:var(--faint)}
+.rem.hub{color:var(--faint)}
+.lv{margin-left:auto;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px}
+.lv.warn{color:#fff;background:var(--red-b)}.lv.caut{color:var(--yel);background:#F5C542}
+.lane{padding:12px;display:grid;grid-template-columns:repeat(4,minmax(156px,1fr));gap:10px;align-items:start;overflow-x:auto;min-width:0}
+.lane .none{grid-column:1/-1;color:var(--faint);font-size:13px;align-self:center;padding-left:4px}
+.ramp{background:#FBFBFC;padding:10px;display:flex;flex-direction:column;justify-content:center;gap:8px;overflow:hidden}
+.tc{all:unset;box-sizing:border-box;cursor:pointer;background:var(--card);border:1px solid #C7CDD5;border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;min-width:0;height:172px;overflow:hidden;font-family:inherit;color:var(--ink)}
+.tc:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tc.sel{border:2px solid var(--accent);box-shadow:0 0 0 3px var(--accent-s)}
+.tc.miss{border:2px solid var(--orange-b)}
+.tc.sel.miss{border-color:var(--accent)}
+.tc.unreg{border:2px dashed var(--red-b);background:#FFF7F6}
+.tc .r1{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
+.tc .r1 b{font-size:17px;flex-shrink:0}
+.tc .r1 .drv{margin-left:auto;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.tc .tel{display:flex;align-items:center;gap:5px;margin-top:4px;font-size:12px;white-space:nowrap;overflow:hidden;font-family:var(--mono)}
+.tc .ld{display:flex;align-items:baseline;gap:4px;margin-top:5px;white-space:nowrap}
+.tc .ld b{font-family:var(--mono);font-size:24px;line-height:1.1}
+.tc .ld small{font-size:12px;color:var(--muted)}
+.tc .ld .io{margin-left:auto;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.cap{height:5px;border-radius:3px;background:#E3E7EC;overflow:hidden;margin-top:4px}
+.cap i{display:block;height:5px;border-radius:3px;background:#7E8A99}
+.cap i.full{background:var(--ok)}
+.nx{margin-top:5px;white-space:nowrap;font-size:13px;font-weight:700;padding:3px 8px;border-radius:6px;align-self:flex-start;background:var(--orange-s);color:var(--orange)}
+.nx.miss{background:var(--red-s);color:var(--red)}
+.hint{font-size:11px;color:var(--accent-d);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.since{font-size:11px;color:var(--muted);margin-top:auto;padding-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mstrip{margin-top:auto;font-size:11px;font-weight:700;color:#fff;background:var(--purple);border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mv{all:unset;box-sizing:border-box;cursor:pointer;background:var(--orange-s);border:1px solid #E9B27C;border-radius:10px;padding:8px 10px;font-family:inherit;color:var(--ink);overflow:hidden}
+.mv.sel{border:2px solid var(--accent)}
+.mv .a{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mv .a i{font-style:normal;font-size:18px;font-weight:700;color:var(--orange)}
+.mv .a b{font-size:15px}
+.mv .a span{margin-left:auto;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.mv small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:10px 16px;font-size:12px;color:var(--muted);background:#F8F9FB}
+
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.panel.sel{border:2px solid var(--accent)}
+.panel h2{margin:0 0 10px;font-size:15px}
+.ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ph b{font-size:22px}
+.ph .where{margin-left:auto;font-family:var(--mono);font-size:15px;font-weight:700;background:var(--ink);color:#fff;padding:3px 10px;border-radius:6px}
+.fld{display:flex;flex-direction:column;gap:6px}
+.fld>label,.fld>.lbl{font-size:13px;color:var(--muted)}
+.row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:44px;height:44px;flex-shrink:0;border-radius:8px;border:1px solid #C7CDD5;background:var(--card);font-size:20px}
+.step input{width:100%;min-width:0;height:44px;text-align:center;font-family:var(--mono);font-size:22px;font-weight:700;border:1px solid #C7CDD5;border-radius:8px}
+.tot{display:flex;align-items:baseline;gap:8px;padding:10px 12px;background:var(--bg);border-radius:8px}
+.tot span{font-size:13px;color:var(--muted)}
+.tot b{margin-left:auto;font-family:var(--mono);font-size:26px}
+.fgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fb{min-height:52px;border-radius:8px;border:1px solid #C7CDD5;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:4px}
+.fb b{font-family:var(--mono);font-size:16px}
+.fb small{font-size:11px;color:var(--muted)}
+.fb.on{border:2px solid #B4590E;background:var(--orange-s);color:var(--orange)}
+.fb.on small{color:var(--orange)}
+.fb.here{background:var(--line2);color:var(--faint);border-color:var(--line)}
+.fb.w small{color:var(--red)}.fb.c small{color:var(--yel)}
+.mvbox{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--purple-s);border-radius:10px}
+.mvbox .t{display:flex;align-items:baseline;gap:8px}
+.mvbox .t b{font-size:13px;color:var(--purple-d)}
+.mvbox .t span{margin-left:auto;font-size:11px;color:var(--muted)}
+.mgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.mgrid button{height:44px;border-radius:8px;border:1px solid #C9C3EE;background:var(--card);font-family:var(--mono);font-size:15px;font-weight:700}
+.mgrid button.on{border:2px solid var(--purple);background:#E4E0F8;color:var(--purple-d)}
+.mgrid button.txt{font-family:inherit;font-size:11px;white-space:nowrap;padding:0 2px}
+.telrow{display:flex;gap:8px}
+.telrow input{flex:1;min-width:0;height:44px;padding:0 10px;font-family:var(--mono);font-size:17px;border:1px solid #C7CDD5;border-radius:8px}
+.telrow a{display:flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border-radius:8px;background:var(--ok);color:#fff;text-decoration:none;font-weight:700;font-size:14px}
+.acts{display:flex;gap:8px}
+.acts .btn{flex:1;justify-content:center;height:48px;font-size:16px}
+.muted{color:var(--muted);font-size:12px}
+.empty-side{color:var(--muted);font-size:14px;text-align:center;padding:24px 8px}
+table.hist{width:100%;border-collapse:collapse;font-size:13px}
+table.hist th{text-align:left;color:var(--muted);font-weight:500;padding:6px 4px;border-bottom:1px solid var(--line)}
+table.hist td{padding:6px 4px;border-bottom:1px solid var(--line2)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-weight:700;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+
+/* ---------- 現場入力 ---------- */
+.fl-head{display:flex;align-items:center;gap:14px;background:var(--ink);color:#fff;padding:14px 18px;border-radius:14px;margin-bottom:14px;flex-wrap:wrap}
+.fl-head b{font-family:var(--mono);font-size:32px}
+.fl-head select{height:40px;border-radius:8px;border:none;padding:0 10px;font-size:15px;color:var(--ink)}
+.fl-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+@media (min-width:900px){.fl-cols{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}}
+.arr{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.arr button{min-height:60px;border-radius:10px;border:1px solid #C7CDD5;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.arr button b{font-size:16px}
+.arr button small{font-size:11px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{min-height:44px;padding:0 16px;border-radius:22px;border:1px solid #C7CDD5;background:var(--card);font-size:15px}
+.chips button.on{border:2px solid var(--accent);background:var(--accent-s);color:var(--accent-d);font-weight:700}
+
+/* ---------- 本日の登録 ---------- */
+.as-grid{display:grid;grid-template-columns:96px 120px minmax(0,1fr) 170px 150px 110px;gap:10px;align-items:center}
+.as-grid.h{font-size:12px;color:var(--muted);padding:0 2px}
+.as-row{padding:8px 2px;border-top:1px solid var(--line2)}
+.as-row input,.as-row select{height:44px;width:100%;padding:0 10px;border:1px solid #C7CDD5;border-radius:8px;background:var(--card)}
+.st{font-size:12px;font-weight:700;padding:4px 8px;border-radius:6px;justify-self:start;background:var(--line2);color:var(--muted)}
+.st.on{background:var(--ok-s);color:var(--ok)}
+@media (max-width:860px){
+  .as-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .as-grid.h{display:none}
+}
+dialog{border:1px solid var(--line);border-radius:14px;max-width:620px;width:calc(100% - 32px);padding:20px}
+dialog h3{margin:0 0 12px}
+dialog .fld{margin-bottom:12px}
+dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;border-radius:8px;width:100%}
+@media (max-width:640px){
+  header.top{padding:10px 12px}
+  main{padding:12px}
+  .clock{font-size:18px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><small>OUTBOUND</small><b>縦持ち 現在階</b></div>
+  <nav class="tabs" aria-label="画面">
+    <a href="#monitor" data-v="monitor">事務所モニター</a>
+    <a href="#floor" data-v="floor">現場入力</a>
+    <a href="#assign" data-v="assign">本日の登録</a>
+  </nav>
+  <div class="seg" role="group" aria-label="運用モード" id="modeSeg"><span>運用モード</span><button type="button" data-mode="manual">手動</button><button type="button" data-mode="auto">自動検知</button></div>
+  <span class="sp"></span>
+  <span id="conn" class="conn">接続中…</span>
+  <span class="clock" id="clock">--:--</span>
+  <button type="button" class="btn" id="btnSettings">設定</button>
+</header>
+<div id="errBar" class="errbar" hidden></div>
+
+<main>
+  <!-- 事務所モニター -->
+  <section class="view" id="v-monitor">
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px" id="stats"></div>
+    <div class="mon">
+      <div class="bld" aria-label="建物の断面">
+        <div class="bld-h"><div>階</div><div>残パレット</div><div>着車バース（最大4台）</div><div>スロープ（移動中）</div></div>
+        <div id="floors"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="side">
+        <div id="sidePanel"></div>
+        <div class="panel">
+          <h2>本日の履歴</h2>
+          <div style="overflow-x:auto;max-height:420px;overflow-y:auto"><table class="hist"><thead><tr><th>時刻</th><th>車両</th><th>階</th><th>内容</th><th>次</th></tr></thead><tbody id="hist"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 現場入力 -->
+  <section class="view" id="v-floor">
+    <div class="fl-head">
+      <b id="flName">--</b>
+      <div style="display:flex;flex-direction:column"><span style="font-weight:700">この階の担当者用</span><span style="font-size:12px;color:#B9C2CE">担当の階を選んでください（この端末に保存されます）</span></div>
+      <span class="sp"></span>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px">担当の階 <select id="flSel"></select></label>
+    </div>
+    <div class="fl-cols">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="panel">
+          <h2 style="display:flex;align-items:baseline;gap:8px">この階に着車した<span class="muted" style="margin-left:auto;font-weight:400" id="flArrHint"></span></h2>
+          <div class="arr" id="flArr"></div>
+        </div>
+        <div class="panel">
+          <h2>この階にいるトラック</h2>
+          <div class="chips" id="flHere"></div>
+        </div>
+      </div>
+      <div id="flForm"></div>
+    </div>
+  </section>
+
+  <!-- 本日の登録 -->
+  <section class="view" id="v-assign">
+    <div class="panel" style="padding:22px 24px">
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div><div class="muted" id="asDate"></div><h2 style="margin:0;font-size:22px">本日のドライバー登録</h2></div>
+        <div class="muted" style="margin-left:auto;text-align:right" id="asReset"></div>
+      </div>
+      <div class="muted" style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:14px">号車ごとに、その日のドライバー名と電話番号を登録します。BLEタグを使う場合は「タグ」を選びます（受信ツールで登録したタグが選べます）。前日と同じ人なら「前日と同じ」で入力できます。</div>
+      <div class="as-grid h"><div>号車</div><div>状態</div><div>ドライバー名</div><div>電話番号</div><div>タグ</div><div></div></div>
+      <div id="asRows"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+        <button type="button" class="btn" id="asAdd">＋ 号車を追加</button>
+        <button type="button" class="btn" id="asCopyAll">すべて前日と同じ</button>
+        <span class="sp"></span>
+        <button type="button" class="btn pri big" id="asSave" style="padding:0 28px">登録する</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <h3>設定</h3>
+  <div class="fld"><label for="sUrl">データベースURL（この端末のみ）</label><input id="sUrl"></div>
+  <div class="row2">
+    <div class="fld"><label for="sFloors">階（上から順、カンマ区切り）</label><input id="sFloors"></div>
+    <div class="fld"><label for="sHub">集約階</label><input id="sHub"></div>
+  </div>
+  <div class="row2">
+    <div class="fld"><label for="sCap">最大積載（枚）</label><input id="sCap" type="number" min="1"></div>
+    <div class="fld"><label for="sReset">業務日の切替時刻（時）</label><input id="sReset" type="number" min="0" max="23"></div>
+  </div>
+  <div class="row2">
+    <div class="fld"><label for="sCaut">残パレット 注意（枚以上）</label><input id="sCaut" type="number" min="1"></div>
+    <div class="fld"><label for="sWarn">残パレット 警告（枚以上）</label><input id="sWarn" type="number" min="1"></div>
+  </div>
+  <div class="row2">
+    <div class="fld"><label for="sThr">受信機：検知とみなす電波強度（dBm以上）</label><input id="sThr" type="number"></div>
+    <div class="fld"><label for="sTmo">受信機：検知が途切れて移動中とみなす秒数</label><input id="sTmo" type="number" min="5"></div>
+  </div>
+  <p class="muted">データベースURL以外の設定は全端末で共有されます。</p>
+  <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="sCancel">キャンセル</button><button type="button" class="btn pri" id="sSave">保存</button></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+// =====================================================================
+// 基本
+// =====================================================================
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('tatemochi.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('tatemochi.' + k, JSON.stringify(v)); } catch {} }
+};
+const DEFAULT_URL = 'https://gworker-haichi-default-rtdb.asia-southeast1.firebasedatabase.app';
+const ROOT = 'floorTracker';
+const SV = { '.sv': 'timestamp' };
+const DEFAULT_CFG = { floors: ['6F', '5F', '4F', '3F', '2F'], hub: '4F', capacity: 14, caution: 8, warn: 10, resetHour: 20, mode: 'manual', detectThr: -95, detectTimeout: 20 };
+const TEL_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1E7A44" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg>';
+const TRUCK_SVG = '<svg width="28" height="20" viewBox="0 0 30 22" fill="none" stroke="#17202B" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="17" height="12" rx="1.5"></rect><path d="M18 7h5.5l4.5 4.5V15H18z"></path><circle cx="7" cy="17.5" r="2.5" fill="#FFFFFF"></circle><circle cx="22.5" cy="17.5" r="2.5" fill="#FFFFFF"></circle></svg>';
+
+let dbUrl = LS.get('url', DEFAULT_URL);
+const S = { config: null, sheet: null, tags: {}, receivers: {}, obs: {}, day: {}, prevAssign: null };
+let view = 'monitor', sel = null, flSel = null;
+let bd = null;                 // 現在の業務日キー
+const conn = {};               // パス -> 状態
+const streams = {};
+
+function cfg() { return Object.assign({}, DEFAULT_CFG, S.config || {}); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function ymd(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function bdKeyOf(ts) { const d = new Date(ts); if (d.getHours() >= cfg().resetHour) d.setDate(d.getDate() + 1); return ymd(d); }
+function prevBd(key) { const [y, m, d] = key.split('-').map(Number); const x = new Date(y, m - 1, d); x.setDate(x.getDate() - 1); return ymd(x); }
+function hhmm(t) { if (!t) return '--:--'; const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function mins(t) { return Math.max(0, Math.floor((Date.now() - t) / 60000)); }
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('on'), 1800); }
+
+// =====================================================================
+// Firebase（REST・ストリーミング）
+// =====================================================================
+function base() { return dbUrl.trim().replace(/\/+$/, ''); }
+function setAt(obj, path, val) {
+  const ps = path.split('/').filter(Boolean);
+  if (!ps.length) return val;
+  obj = obj && typeof obj === 'object' ? obj : {};
+  let cur = obj;
+  for (let i = 0; i < ps.length - 1; i++) { if (!cur[ps[i]] || typeof cur[ps[i]] !== 'object') cur[ps[i]] = {}; cur = cur[ps[i]]; }
+  if (val === null) delete cur[ps[ps.length - 1]]; else cur[ps[ps.length - 1]] = val;
+  return obj;
+}
+function subscribe(key, path) {
+  if (streams[key]) streams[key].close();
+  conn[key] = 'connecting';
+  const es = new EventSource(`${base()}/${ROOT}/${path}.json`);
+  streams[key] = es;
+  const apply = (ev, patch) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (!m) return;
+    conn[key] = 'ok';
+    if (patch) for (const [k, v] of Object.entries(m.data || {})) S[key] = setAt(S[key], m.path + '/' + k, v);
+    else S[key] = setAt(S[key], m.path, m.data);
+    if (S[key] == null) S[key] = (key === 'config' || key === 'sheet') ? null : {};
+    scheduleRender();
+  };
+  es.addEventListener('put', ev => apply(ev, false));
+  es.addEventListener('patch', ev => apply(ev, true));
+  es.addEventListener('keep-alive', () => { conn[key] = 'ok'; });
+  es.addEventListener('cancel', () => { conn[key] = 'ng'; showErr('データベースへのアクセスが拒否されました（ルールの設定を確認してください）'); es.close(); });
+  es.onerror = () => { conn[key] = 'ng'; };
+}
+// 常時接続（ストリーミング）は2本だけにする（ブラウザの同時接続数の上限対策）。
+// 変化の少ないデータは10秒ごとに取得する。
+const POLL = [['config', 'config'], ['sheet', 'sheet'], ['tags', 'tags'], ['receivers', 'receivers']];
+async function poll(key, path) {
+  try {
+    const res = await fetch(`${base()}/${ROOT}/${path}.json`, { cache: 'no-store' });
+    if (res.status === 401) { conn[key] = 'ng'; showErr('データベースへのアクセスが拒否されました（ルールの設定を確認してください）'); return; }
+    if (!res.ok) throw new Error();
+    const v = await res.json();
+    S[key] = v == null ? ((key === 'config' || key === 'sheet') ? null : {}) : v;
+    conn[key] = 'ok';
+    scheduleRender();
+  } catch { conn[key] = 'ng'; }
+}
+function pollAll() { POLL.forEach(([k, p]) => poll(k, p)); }
+let pollTimer = null;
+function connectAll() {
+  $('errBar').hidden = true;
+  pollAll();
+  clearInterval(pollTimer); pollTimer = setInterval(pollAll, 10000);
+  subscribe('obs', 'obs');
+  connectDay();
+}
+function connectDay() {
+  bd = bdKeyOf(Date.now());
+  S.day = {}; S.prevAssign = null;
+  subscribe('day', `day/${bd}`);
+  fetch(`${base()}/${ROOT}/day/${prevBd(bd)}/assign.json`).then(r => r.ok ? r.json() : null).then(v => { S.prevAssign = v || {}; scheduleRender(); }).catch(() => {});
+}
+async function fbPatch(obj) {
+  try {
+    const res = await fetch(`${base()}/${ROOT}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(obj) });
+    if (!res.ok) throw new Error(res.status === 401 ? 'アクセスが拒否されました' : 'HTTP ' + res.status);
+    return true;
+  } catch (e) { showErr('保存に失敗しました：' + e.message); return false; }
+}
+function showErr(t) { const b = $('errBar'); b.textContent = t; b.hidden = false; }
+const D = () => `day/${bd}`;
+function logEntry(o) { return { [`${D()}/log/${newId()}`]: Object.assign({ t: SV }, o) }; }
+
+// =====================================================================
+// データの組み立て
+// =====================================================================
+function slots() {
+  const a = (S.day && S.day.assign) || {};
+  return Object.entries(a).filter(([, v]) => v && (v.no || v.driver)).map(([id, v]) => ({ id, ...v }))
+    .sort((x, y) => String(x.no).localeCompare(String(y.no), 'ja', { numeric: true }));
+}
+function truckState(id) { return ((S.day && S.day.trucks) || {})[id] || null; }
+function floorIdx(f) { return cfg().floors.indexOf(f); }
+
+// 受信機：タグが今どの階で検知されているか（最も電波の強い受信機の階）
+function detected(tagKey) {
+  if (!tagKey) return null;
+  const c = cfg(), now = Date.now(), list = Object.values((S.obs || {})[tagKey] || {});
+  let best = null;
+  for (const o of list) {
+    if (!o || typeof o.t !== 'number' || typeof o.avg !== 'number') continue;
+    if (now - o.t > c.detectTimeout * 1000 || o.avg < c.detectThr) continue;
+    if (!best || o.avg > best.avg) best = o;
+  }
+  return best ? best.floor : null;
+}
+function receiverOk(floor) {
+  const rs = Object.values(S.receivers || {}).filter(r => r && r.floor === floor);
+  if (!rs.length) return null;
+  return rs.some(r => typeof r.lastSeen === 'number' && Date.now() - r.lastSeen < 15000);
+}
+
+// 残パレット：シートの毎時の値と、その後の現場報告のうち新しい方
+function sheetTs(time) {
+  if (!time || !bd) return 0;
+  const [h, m] = time.split(':').map(Number);
+  const [y, mo, d] = bd.split('-').map(Number);
+  const x = new Date(y, mo - 1, d, h, m || 0);
+  if (h >= cfg().resetHour) x.setDate(x.getDate() - 1);
+  return x.getTime();
+}
+function remainOf(floor) {
+  const sh = S.sheet && S.sheet.bd === bd ? S.sheet : null;
+  const sv = sh && sh.values ? sh.values[floor] : null;
+  const st = sh ? sheetTs(sh.time) : 0;
+  const rep = ((S.day && S.day.reports) || {})[floor];
+  if (rep && typeof rep.remain === 'number' && (sv == null || (rep.t || 0) >= st)) return { n: rep.remain, note: `${hhmm(rep.t)} 現場報告${rep.by ? '（' + rep.by + '）' : ''}` };
+  if (sv != null) return { n: sv, note: `${sh.time} シート` };
+  return { n: null, note: 'データなし' };
+}
+function level(n) { const c = cfg(); if (n == null) return ''; return n >= c.warn ? 'warn' : n >= c.caution ? 'caut' : ''; }
+function bestPickup(exclude) {
+  const c = cfg(); let best = null;
+  for (const f of c.floors) {
+    if (f === c.hub || f === exclude) continue;
+    const r = remainOf(f).n;
+    if (r != null && r > 0 && (!best || r > best.n)) best = { f, n: r };
+  }
+  return best;
+}
+function truckView(s) {
+  const t = truckState(s.id) || {};
+  const c = cfg();
+  const atHub = t.floor === c.hub;
+  const load = Number(t.load || 0);
+  let io = '';
+  if (t.status === 'at') io = atHub ? '荷降ろし中' : (t.loadedHere != null ? `積${t.loadedHere} / 残${t.remainHere ?? '-'}` : '積込中');
+  let hint = '';
+  if (t.status === 'at' && !t.next) {
+    if (atHub) { const b = bestPickup(); if (b) hint = `おすすめ：${b.f}（残${b.n}枚）`; }
+    else hint = `積んだら ${c.hub}（集約階）へ`;
+  }
+  const det = detected(s.tag);
+  return { s, t, atHub, load, io, hint, det, unreg: !s.driver };
+}
+
+// =====================================================================
+// 操作（すべてFirebaseへ書き込み、表示は購読で更新）
+// =====================================================================
+async function arrive(id, floor, how) {
+  const s = slots().find(x => x.id === id); if (!s) return;
+  const cur = truckState(id) || {};
+  const c = cfg();
+  const manualOverride = c.mode === 'auto' && how !== 'auto';
+  const det = detected(s.tag);
+  const load = floor === c.hub ? Number(cur.load || 0) : Number(cur.load || 0);
+  const ok = await fbPatch(Object.assign({
+    [`${D()}/trucks/${id}`]: {
+      floor, status: 'at', since: SV, load, loadAtArrival: load, loadedHere: null, remainHere: null, next: '',
+      manual: manualOverride, manualDetect: manualOverride ? (det || '') : '', by: how || 'manual'
+    }
+  }, logEntry({ no: s.no, floor, type: 'arrive', io: how === 'auto' ? '着車（自動）' : '着車', next: '' })));
+  if (ok && how !== 'auto') toast(`${s.no} を ${floor} に移動しました`);
+}
+async function depart(id) {
+  const s = slots().find(x => x.id === id); const t = truckState(id); if (!s || !t) return;
+  const c = cfg();
+  const patch = Object.assign({
+    [`${D()}/trucks/${id}/status`]: 'moving', [`${D()}/trucks/${id}/departedAt`]: SV,
+    [`${D()}/trucks/${id}/manual`]: c.mode === 'auto' ? false : !!t.manual
+  }, logEntry({ no: s.no, floor: t.floor, type: 'depart', io: '出発', next: t.next || '' }));
+  if (t.floor === c.hub) patch[`${D()}/trucks/${id}/load`] = 0;
+  if (await fbPatch(patch)) toast(`${s.no} が出発しました`);
+}
+async function saveInput(id, loaded, remain, next, tel) {
+  const s = slots().find(x => x.id === id); const t = truckState(id); if (!s) return;
+  const c = cfg();
+  const patch = {};
+  if (tel !== undefined && tel !== (s.tel || '')) patch[`${D()}/assign/${id}/tel`] = tel;
+  if (t && t.status === 'at') {
+    const atHub = t.floor === c.hub;
+    let changed = false;
+    if (!atHub) {
+      const n = Math.max(0, Number(loaded) || 0), r = remain === '' || remain == null ? null : Math.max(0, Number(remain) || 0);
+      if (n !== (t.loadedHere ?? 0) || r !== (t.remainHere ?? null)) {
+        patch[`${D()}/trucks/${id}/loadedHere`] = n;
+        patch[`${D()}/trucks/${id}/remainHere`] = r;
+        patch[`${D()}/trucks/${id}/load`] = Number(t.loadAtArrival || 0) + n;
+        if (r != null) patch[`${D()}/reports/${t.floor}`] = { remain: r, t: SV, by: s.no };
+        changed = true;
+      }
+    }
+    if ((next || '') !== (t.next || '')) { patch[`${D()}/trucks/${id}/next`] = next || ''; changed = true; }
+    if (changed) Object.assign(patch, logEntry({ no: s.no, floor: t.floor, type: 'input', io: atHub ? '荷降ろし' : `${Number(loaded) || 0} / ${remain === '' || remain == null ? '-' : remain}`, next: next || '' }));
+  }
+  if (!Object.keys(patch).length) return;
+  if (await fbPatch(patch)) toast('保存しました');
+}
+async function setMoving(id) {
+  const t = truckState(id);
+  if (!t) { toast('まだどの階にも着車していません'); return; }
+  await depart(id);
+}
+async function releaseManual(id) {
+  await fbPatch({ [`${D()}/trucks/${id}/manual`]: false });
+}
+
+// 自動検知モード：受信機の検知に合わせて位置を更新（手動の上書きは「次の動き」まで維持）
+let autoBusy = false;
+async function autoTick() {
+  const c = cfg();
+  if (c.mode !== 'auto' || autoBusy || !bd || view !== 'monitor') return;
+  autoBusy = true;
+  try {
+    for (const s of slots()) {
+      if (!s.tag) continue;
+      const t = truckState(s.id) || {};
+      const det = detected(s.tag);
+      if (t.manual) {
+        if (det && det !== (t.manualDetect || '')) { if (det !== t.floor) await arrive(s.id, det, 'auto'); else await releaseManual(s.id); }
+        continue;
+      }
+      if (det && (det !== t.floor || t.status !== 'at')) await arrive(s.id, det, 'auto');
+    }
+  } finally { autoBusy = false; }
+}
+
+// =====================================================================
+// 描画
+// =====================================================================
+let rq = false;
+function scheduleRender() { if (!rq) { rq = true; requestAnimationFrame(() => { rq = false; render(); }); } }
+
+function render() {
+  const c = cfg();
+  if (bd && bd !== bdKeyOf(Date.now())) { connectDay(); return; }
+  document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + view));
+  $('modeSeg').style.display = view === 'floor' ? 'none' : '';   // 現場の端末ではモード切替を出さない
+  document.querySelectorAll('#modeSeg button').forEach(b => { const on = b.dataset.mode === c.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  const states = Object.values(conn);
+  const cn = $('conn');
+  if (states.length && states.every(x => x === 'ok')) { cn.className = 'conn ok'; cn.textContent = '接続中'; }
+  else if (states.some(x => x === 'ng')) { cn.className = 'conn ng'; cn.textContent = '接続エラー'; }
+  else { cn.className = 'conn'; cn.textContent = '接続中…'; }
+  if (view === 'monitor') renderMonitor();
+  else if (view === 'floor') renderFloor();
+  else if (view === 'assign') renderAssign();
+}
+
+function cardHtml(v, selected) {
+  const { s, t, load, io, hint } = v;
+  const c = cfg();
+  const cls = ['tc'];
+  if (selected) cls.push('sel');
+  if (v.unreg) cls.push('unreg'); else if (t.status === 'at' && !t.next) cls.push('miss');
+  const pct = Math.round(Math.min(load, c.capacity) / c.capacity * 100);
+  const bottom = (c.mode === 'auto' && t.manual)
+    ? `<div class="mstrip">手動で配置中（受信機は${esc(v.det || '未検知')}）</div>`
+    : `<div class="since">${t.since ? hhmm(t.since) + ' 着車・' + mins(t.since) + '分' : ''}${c.mode === 'manual' && v.det && v.det !== t.floor ? '・受信機:' + esc(v.det) : ''}</div>`;
+  return `<button type="button" class="${cls.join(' ')}" draggable="true" data-sel="${esc(s.id)}" data-drag="${esc(s.id)}" aria-label="${esc(s.no)} ${esc(s.driver || '未登録')}">
+    <div class="r1">${TRUCK_SVG}<b>${esc(s.no)}</b><span class="drv">${esc(s.driver || '未登録')}</span></div>
+    <div class="tel">${TEL_SVG}<span>${esc(s.tel || '未登録')}</span></div>
+    <div class="ld"><b>${load}</b><small>/ ${c.capacity}枚</small><span class="io">${esc(io)}</span></div>
+    <div class="cap"><i class="${load >= c.capacity ? 'full' : ''}" style="width:${pct}%"></i></div>
+    <div class="nx ${t.next ? '' : 'miss'}">次 → ${esc(t.next || '未入力')}</div>
+    ${hint ? `<div class="hint">${esc(hint)}</div>` : ''}
+    ${bottom}
+  </button>`;
+}
+
+function renderMonitor() {
+  const c = cfg();
+  const vs = slots().map(truckView);
+  const at = vs.filter(v => v.t.status === 'at'), mv = vs.filter(v => v.t.status === 'moving');
+  const nxMiss = at.filter(v => !v.t.next).length;
+  const unreg = vs.filter(v => v.unreg).length;
+  let remainSum = 0; for (const f of c.floors) if (f !== c.hub) remainSum += remainOf(f).n || 0;
+  const rxAll = Object.values(S.receivers || {}), rxOn = rxAll.filter(r => typeof r.lastSeen === 'number' && Date.now() - r.lastSeen < 15000).length;
+  $('stats').innerHTML = `
+    <span class="pill p-gray">稼働 <b>${vs.length}</b> 台</span>
+    <span class="pill p-ok">着車中 <b>${at.length}</b></span>
+    <span class="pill p-or">移動中 <b>${mv.length}</b></span>
+    <span class="pill ${nxMiss ? 'p-red' : 'p-gray'}">次の行き先 未入力 <b>${nxMiss}</b></span>
+    <span class="pill p-blue">残パレット合計 <b>${remainSum}</b> 枚</span>
+    <span class="sp" style="flex:1"></span>
+    ${rxAll.length ? `<span class="pill ${rxOn === rxAll.length ? 'p-ok' : 'p-red'}">受信機${c.mode === 'manual' ? '（補助）' : ''} ${rxOn}/${rxAll.length} 稼働</span>` : ''}
+    <a class="btn" href="#assign">本日のドライバー登録${unreg || !vs.length ? `<span class="badge-n">${vs.length ? '未' + unreg : '未登録'}</span>` : ''}</a>`;
+
+  $('floors').innerHTML = c.floors.map(f => {
+    const rok = receiverOk(f);
+    const hub = f === c.hub;
+    const r = remainOf(f);
+    const lv = hub ? '' : level(r.n);
+    const remCell = hub
+      ? `<div class="rem hub"><b class="mono" style="font-size:22px">—</b><small>集約階</small></div>`
+      : `<div class="rem ${lv} ${r.n === 0 ? 'zero' : ''}"><div class="n"><b>${r.n ?? '-'}</b><span style="font-size:13px">枚</span>${lv ? `<span class="lv ${lv}">${lv === 'warn' ? '警告' : '注意'}</span>` : ''}</div><div class="bar"><i style="width:${Math.round(Math.min(r.n || 0, c.capacity) / c.capacity * 100)}%"></i></div><small>${esc(r.note)}</small></div>`;
+    const here = vs.filter(v => v.t.status === 'at' && v.t.floor === f);
+    const moving = vs.filter(v => v.t.status === 'moving' && v.t.floor === f);
+    return `<div class="frow" data-drop="${esc(f)}">
+      <div class="flab"><b>${esc(f)}</b><span class="rx ${rok === false ? 'down' : ''}">受信機 ${rok == null ? 'なし' : rok ? 'OK' : '停止'}</span></div>
+      ${remCell}
+      <div class="lane">${here.map(v => cardHtml(v, sel === v.s.id)).join('') || '<div class="none">着車なし</div>'}</div>
+      <div class="ramp">${moving.map(v => {
+        const ni = floorIdx(v.t.next), fi = floorIdx(f);
+        const arrow = v.t.next && ni >= 0 ? (ni < fi ? '↑' : '↓') : '・';
+        return `<button type="button" class="mv ${sel === v.s.id ? 'sel' : ''}" draggable="true" data-sel="${esc(v.s.id)}" data-drag="${esc(v.s.id)}">
+          <div class="a"><i>${arrow}</i><b>${esc(v.s.no)}</b><span>${esc(v.s.driver || '')}</span></div>
+          <small>${esc(f)} → ${esc(v.t.next || '行き先未入力')}・${v.t.departedAt ? mins(v.t.departedAt) + '分前' : ''}</small>
+          <small class="mono" style="color:var(--ink)">${esc(v.s.tel || '')}　積載${v.load}枚</small></button>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+
+  const notPlaced = vs.filter(v => !v.t.status);
+  $('legend').innerHTML = `
+    ${notPlaced.length ? `<div style="color:var(--ink)">未配置：${notPlaced.map(v => `<button type="button" class="btn" style="height:30px;padding:0 10px;font-size:12px" data-sel="${esc(v.s.id)}" draggable="true" data-drag="${esc(v.s.id)}">${esc(v.s.no)}</button>`).join(' ')}（選んで右側で階を指定、または階へドラッグ）</div>` : ''}
+    <div>残パレット：進捗管理表（縦持ち）の毎時入力値に、その後の現場報告を反映</div>
+    <div>${c.caution}枚以上：黄色（注意）、${c.warn}枚以上：赤（警告）、最大積載 ${c.capacity}枚</div>
+    <div>${c.mode === 'manual' ? '手動モード：カードはドラッグ・階ボタン・現場入力の「着車」でのみ移動（受信機は参考表示）' : '自動検知モード：受信機の検知で移動。手動で動かしたカードは紫の帯（次の動きで自動に戻る）'}</div>`;
+
+  renderSide(vs);
+  renderHist();
+}
+
+function inputForm(v, ctx) {
+  const c = cfg();
+  const { s, t } = v;
+  const atHub = t.floor === c.hub;
+  const curLoad = Number(t.loadAtArrival || 0) + Number(t.loadedHere || 0);
+  const fbtn = c.floors.map(f => {
+    if (f === t.floor) return `<button type="button" class="fb here" disabled><b>${esc(f)}</b><small>現在地</small></button>`;
+    const isHub = f === c.hub; const r = remainOf(f); const lv = isHub ? '' : level(r.n);
+    const rec = (!atHub && isHub) || (atHub && bestPickup() && bestPickup().f === f);
+    const on = t.next === f;
+    return `<button type="button" class="fb ${on ? 'on' : ''} ${lv === 'warn' ? 'w' : lv === 'caut' ? 'c' : ''}" data-next="${esc(f)}"><b>${esc(f)}</b><small>${isHub ? '集約' : '残' + (r.n ?? '-')}${lv === 'warn' ? ' 警告' : lv === 'caut' ? ' 注意' : ''}${rec ? '・おすすめ' : ''}</small></button>`;
+  }).join('') + `<button type="button" class="fb ${t.next === 'その他' ? 'on' : ''}" data-next="その他"><b style="font-family:inherit;font-size:14px">その他</b></button>`;
+  return `<form class="fld" data-form="${esc(s.id)}" data-ctx="${ctx}" style="gap:14px" onsubmit="return false">
+    ${t.status === 'at' && !atHub ? `<div class="row2">
+      <div class="fld"><label for="in-l-${ctx}">この階で積んだ枚数</label><div class="step"><button type="button" data-step="l:-1" aria-label="1枚減らす">−</button><input id="in-l-${ctx}" name="loaded" inputmode="numeric" value="${t.loadedHere ?? 0}"><button type="button" data-step="l:1" aria-label="1枚増やす">＋</button></div></div>
+      <div class="fld"><label for="in-r-${ctx}">この階に残っている枚数</label><div class="step"><button type="button" data-step="r:-1" aria-label="1枚減らす">−</button><input id="in-r-${ctx}" name="remain" inputmode="numeric" value="${t.remainHere ?? ''}" placeholder="-"><button type="button" data-step="r:1" aria-label="1枚増やす">＋</button></div></div>
+    </div>
+    <div class="tot"><span>積載中（自動計算）</span><b data-total>${curLoad}</b><span>/ ${c.capacity}枚</span></div>` : ''}
+    ${t.status === 'at' && atHub ? `<div class="tot"><span>荷降ろし中（出発時に積載0枚になります）</span><b>${Number(t.load || 0)}</b><span>枚</span></div>` : ''}
+    ${t.status === 'at' ? `<div class="fld"><div class="lbl" style="display:flex">次の行き先<span style="margin-left:auto;color:var(--accent-d)">${esc(v.hint || '')}</span></div><div class="fgrid">${fbtn}</div><input type="hidden" name="next" value="${esc(t.next || '')}"></div>` : ''}
+    <div class="fld"><label for="in-t-${ctx}">連絡先（電話番号・本日のみ有効）</label><div class="telrow"><input id="in-t-${ctx}" name="tel" inputmode="tel" value="${esc(s.tel || '')}" placeholder="090-0000-0000"><a href="tel:${esc((s.tel || '').replace(/[^\d+]/g, ''))}">電話</a></div></div>
+    <div class="acts">
+      <button type="button" class="btn pri" data-save="${esc(s.id)}">保存</button>
+      ${t.status === 'at' ? `<button type="button" class="btn" data-depart="${esc(s.id)}">出発${t.next ? '（→ ' + esc(t.next) + '）' : ''}</button>` : ''}
+    </div>
+  </form>`;
+}
+
+function renderSide(vs) {
+  const el = $('sidePanel');
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // 入力中は再描画しない
+  const v = vs.find(x => x.s.id === sel);
+  if (!v) { el.innerHTML = `<div class="panel"><div class="empty-side">トラックを選ぶと、ここで位置の変更や入力ができます</div></div>`; return; }
+  const c = cfg(); const { s, t } = v;
+  const where = t.status === 'at' ? `${t.floor} ${t.floor === c.hub ? '荷降ろし中' : '積込中'}` : t.status === 'moving' ? `${t.floor} → ${t.next || '?'} 移動中` : '未配置';
+  el.innerHTML = `<div class="panel sel" style="display:flex;flex-direction:column;gap:14px">
+    <div class="ph"><b>${esc(s.no)}</b><span class="muted" style="font-size:13px">${esc(s.driver || '未登録')}</span><span class="where">${esc(where)}</span></div>
+    <div class="mvbox">
+      <div class="t"><b>現在地を変更</b><span>カードのドラッグでも変更できます</span></div>
+      <div class="mgrid">${c.floors.map(f => `<button type="button" class="${t.status === 'at' && t.floor === f ? 'on' : ''}" data-move="${esc(f)}">${esc(f)}</button>`).join('')}<button type="button" class="txt ${t.status === 'moving' ? 'on' : ''}" data-moving="1">移動中</button></div>
+      <div class="muted">${c.mode === 'manual'
+        ? `手動モード：ここで変えた階がそのまま表示されます。${v.det ? '受信機：' + esc(v.det) : s.tag ? '受信機：未検知' : 'タグ未設定'}`
+        : t.manual ? `手動で配置中。受信機が${esc(t.manualDetect || '未検知')}以外で検知すると自動に戻ります。<button type="button" class="btn" style="height:30px;padding:0 10px;font-size:12px" data-release="${esc(s.id)}">自動に戻す</button>`
+        : `自動検知中（受信機：${esc(v.det || '未検知')}）。手動で変えると、次の動きまでその階を表示します。`}</div>
+    </div>
+    ${inputForm(v, 'm')}
+  </div>`;
+}
+
+function renderHist() {
+  const log = Object.values((S.day && S.day.log) || {}).filter(x => x && x.t).sort((a, b) => b.t - a.t).slice(0, 40);
+  $('hist').innerHTML = log.map(x => `<tr><td class="mono">${hhmm(x.t)}</td><td>${esc(x.no)}</td><td class="mono">${esc(x.floor || '')}</td><td>${esc(x.io || '')}</td><td class="mono">${esc(x.next || '-')}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">まだありません</td></tr>';
+}
+
+// ---------- 現場入力 ----------
+function renderFloor() {
+  const c = cfg();
+  let my = LS.get('myFloor', '');
+  if (!c.floors.includes(my)) my = '';
+  const sel_ = $('flSel');
+  if (sel_.dataset.k !== c.floors.join(',')) { sel_.innerHTML = '<option value="">選択してください</option>' + c.floors.map(f => `<option>${esc(f)}</option>`).join(''); sel_.dataset.k = c.floors.join(','); }
+  sel_.value = my;
+  $('flName').textContent = my || '--';
+  const vs = slots().map(truckView);
+  if (!my) { $('flArr').innerHTML = '<div class="muted">先に担当の階を選んでください</div>'; $('flHere').innerHTML = ''; $('flForm').innerHTML = ''; $('flArrHint').textContent = ''; return; }
+  $('flArrHint').textContent = `押すと ${my} に移動`;
+  const others = vs.filter(v => !(v.t.status === 'at' && v.t.floor === my));
+  $('flArr').innerHTML = others.map(v => `<button type="button" data-arrive="${esc(v.s.id)}"><b>${esc(v.s.no)}</b><small>${v.t.status === 'at' ? '今 ' + esc(v.t.floor) : v.t.status === 'moving' ? '移動中' + (v.t.next ? '→' + esc(v.t.next) : '') : '未配置'}</small></button>`).join('') || '<div class="muted">他の階のトラックはありません</div>';
+  const here = vs.filter(v => v.t.status === 'at' && v.t.floor === my);
+  if (!here.find(v => v.s.id === flSel)) flSel = here.length ? here[0].s.id : null;
+  $('flHere').innerHTML = here.map(v => `<button type="button" class="${v.s.id === flSel ? 'on' : ''}" data-flsel="${esc(v.s.id)}">${esc(v.s.no)} ${esc(v.s.driver || '')}</button>`).join('') || '<span class="muted">この階に着車中のトラックはありません</span>';
+  const form = $('flForm');
+  if (form.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  const v = here.find(x => x.s.id === flSel);
+  form.innerHTML = v ? `<div class="panel sel" style="display:flex;flex-direction:column;gap:14px"><div class="ph"><b>${esc(v.s.no)}</b><span class="muted" style="font-size:13px">${esc(v.s.driver || '未登録')}・${hhmm(v.t.since)} 着車</span><span class="where">${esc(my)}</span></div>${inputForm(v, 'f')}</div>` : '';
+}
+
+// ---------- 本日の登録 ----------
+let asDraft = null;   // 編集中の行
+function renderAssign() {
+  const c = cfg();
+  $('asDate').textContent = bd ? `${bd.replace(/-/g, '/')} 業務日` : '';
+  $('asReset').innerHTML = `登録内容は業務日の切替時刻（${c.resetHour}:00）で<br>リセットされます`;
+  if (!asDraft) {
+    const cur = (S.day && S.day.assign) || {};
+    const ids = Object.keys(cur);
+    asDraft = ids.length ? ids.map(id => ({ id, ...cur[id] })) : (S.prevAssign && Object.keys(S.prevAssign).length
+      ? Object.entries(S.prevAssign).map(([id, p]) => ({ id, no: p.no || '', driver: '', tel: '', tag: p.tag || '' }))
+      : [1, 2, 3, 4].map(i => ({ id: 's' + i, no: i + '号車', driver: '', tel: '', tag: '' })));
+    asDraft.sort((a, b) => String(a.no).localeCompare(String(b.no), 'ja', { numeric: true }));
+  }
+  const rows = $('asRows');
+  if (rows.contains(document.activeElement) && ['INPUT', 'SELECT'].includes(document.activeElement.tagName)) return;
+  const tagOpts = Object.entries(S.tags || {}).map(([k, v]) => ({ k, name: (v && v.name) || k }));
+  rows.innerHTML = asDraft.map((r, i) => {
+    const p = (S.prevAssign || {})[r.id] || {};
+    const t = truckState(r.id);
+    const det = detected(r.tag);
+    const st = det ? `検知中 ${det}` : t && t.status === 'at' ? `${t.floor} 着車中` : t && t.status === 'moving' ? '移動中' : '未配置';
+    return `<div class="as-grid as-row" data-row="${i}">
+      <input aria-label="号車" data-f="no" value="${esc(r.no)}" placeholder="号車">
+      <span class="st ${det || (t && t.status) ? 'on' : ''}">${esc(st)}</span>
+      <input aria-label="ドライバー名" data-f="driver" value="${esc(r.driver)}" placeholder="${p.driver ? '前日：' + esc(p.driver) : 'ドライバー名'}">
+      <input aria-label="電話番号" data-f="tel" value="${esc(r.tel)}" inputmode="tel" class="mono" placeholder="${p.tel ? '前日：' + esc(p.tel) : '090-0000-0000'}">
+      <select aria-label="タグ" data-f="tag"><option value="">タグなし</option>${tagOpts.map(o => `<option value="${esc(o.k)}" ${o.k === r.tag ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}${r.tag && !tagOpts.find(o => o.k === r.tag) ? `<option value="${esc(r.tag)}" selected>${esc(r.tag)}</option>` : ''}</select>
+      <button type="button" class="btn" data-copy="${i}" ${p.driver || p.tel ? '' : 'disabled'}>前日と同じ</button>
+    </div>`;
+  }).join('');
+}
+function readAssignDraft() {
+  document.querySelectorAll('#asRows [data-row]').forEach(rowEl => {
+    const r = asDraft[+rowEl.dataset.row];
+    rowEl.querySelectorAll('[data-f]').forEach(inp => { r[inp.dataset.f] = inp.value.trim(); });
+  });
+}
+
+// =====================================================================
+// イベント
+// =====================================================================
+function route() {
+  const v = (location.hash || '#monitor').slice(1);
+  view = ['monitor', 'floor', 'assign'].includes(v) ? v : 'monitor';
+  if (view === 'assign') asDraft = null;
+  render();
+}
+window.addEventListener('hashchange', route);
+
+document.addEventListener('click', async e => {
+  const q = s => e.target.closest(s);
+  let el;
+  if ((el = q('[data-mode]'))) { if (cfg().mode !== el.dataset.mode && await fbPatch({ 'config/mode': el.dataset.mode })) { S.config = Object.assign({}, S.config || {}, { mode: el.dataset.mode }); render(); toast(el.dataset.mode === 'auto' ? '自動検知モードにしました' : '手動モードにしました'); } return; }
+  if ((el = q('[data-sel]'))) { sel = sel === el.dataset.sel ? null : el.dataset.sel; render(); return; }
+  if ((el = q('[data-move]'))) { if (sel) await arrive(sel, el.dataset.move, 'manual'); return; }
+  if ((el = q('[data-moving]'))) { if (sel) await setMoving(sel); return; }
+  if ((el = q('[data-release]'))) { await releaseManual(el.dataset.release); return; }
+  if ((el = q('[data-arrive]'))) { const f = LS.get('myFloor', ''); if (f) { flSel = el.dataset.arrive; await arrive(el.dataset.arrive, f, 'manual'); } return; }
+  if ((el = q('[data-flsel]'))) { flSel = el.dataset.flsel; render(); return; }
+  if ((el = q('[data-step]'))) {
+    const form = el.closest('form'); const [k, d] = el.dataset.step.split(':');
+    const inp = form.querySelector(k === 'l' ? '[name=loaded]' : '[name=remain]');
+    inp.value = Math.max(0, (Number(inp.value) || 0) + Number(d));
+    updateTotal(form); return;
+  }
+  if ((el = q('[data-next]'))) {
+    const form = el.closest('form'); form.querySelector('[name=next]').value = el.dataset.next;
+    form.querySelectorAll('[data-next]').forEach(b => b.classList.toggle('on', b === el)); return;
+  }
+  if ((el = q('[data-save]'))) {
+    const form = el.closest('form'); const g = n => { const i = form.querySelector(`[name=${n}]`); return i ? i.value.trim() : undefined; };
+    await saveInput(el.dataset.save, g('loaded'), g('remain'), g('next'), g('tel'));
+    document.activeElement && document.activeElement.blur(); return;
+  }
+  if ((el = q('[data-depart]'))) {
+    const form = el.closest('form'); const g = n => { const i = form.querySelector(`[name=${n}]`); return i ? i.value.trim() : undefined; };
+    await saveInput(el.dataset.depart, g('loaded'), g('remain'), g('next'), g('tel'));
+    await depart(el.dataset.depart);
+    document.activeElement && document.activeElement.blur(); return;
+  }
+  if ((el = q('[data-copy]'))) {
+    readAssignDraft(); const r = asDraft[+el.dataset.copy]; const p = (S.prevAssign || {})[r.id] || {};
+    r.driver = p.driver || r.driver; r.tel = p.tel || r.tel; r.tag = r.tag || p.tag || ''; r.no = r.no || p.no || '';
+    renderAssign(); return;
+  }
+});
+function updateTotal(form) {
+  const tot = form.querySelector('[data-total]'); if (!tot) return;
+  const t = truckState(form.dataset.form) || {};
+  tot.textContent = Number(t.loadAtArrival || 0) + (Number(form.querySelector('[name=loaded]').value) || 0);
+}
+document.addEventListener('input', e => { const form = e.target.closest('form[data-form]'); if (form) updateTotal(form); });
+
+// ドラッグで階を変更
+document.addEventListener('dragstart', e => { const el = e.target.closest('[data-drag]'); if (el) { e.dataTransfer.setData('text/plain', el.dataset.drag); e.dataTransfer.effectAllowed = 'move'; } });
+document.addEventListener('dragover', e => { const row = e.target.closest('[data-drop]'); if (row) { e.preventDefault(); document.querySelectorAll('.frow.drop').forEach(r => r !== row && r.classList.remove('drop')); row.classList.add('drop'); } });
+document.addEventListener('dragleave', e => { const row = e.target.closest('[data-drop]'); if (row && !row.contains(e.relatedTarget)) row.classList.remove('drop'); });
+document.addEventListener('drop', async e => {
+  const row = e.target.closest('[data-drop]'); if (!row) return;
+  e.preventDefault(); row.classList.remove('drop');
+  const id = e.dataTransfer.getData('text/plain'); if (!id) return;
+  const t = truckState(id);
+  if (t && t.status === 'at' && t.floor === row.dataset.drop) return;
+  sel = id; await arrive(id, row.dataset.drop, 'manual');
+});
+
+$('flSel').onchange = () => { LS.set('myFloor', $('flSel').value); flSel = null; render(); };
+
+$('asAdd').onclick = () => { readAssignDraft(); const n = asDraft.length + 1; let id = 's' + n; while (asDraft.find(r => r.id === id)) id = 's' + Math.floor(Math.random() * 1e6); asDraft.push({ id, no: n + '号車', driver: '', tel: '', tag: '' }); renderAssign(); };
+$('asCopyAll').onclick = () => {
+  readAssignDraft();
+  for (const r of asDraft) { const p = (S.prevAssign || {})[r.id]; if (p) { r.driver = r.driver || p.driver || ''; r.tel = r.tel || p.tel || ''; r.tag = r.tag || p.tag || ''; } }
+  renderAssign();
+};
+$('asSave').onclick = async () => {
+  readAssignDraft();
+  const out = {};
+  for (const r of asDraft) if (r.no || r.driver) out[r.id] = { no: r.no || '', driver: r.driver || '', tel: r.tel || '', tag: r.tag || '' };
+  const nos = Object.values(out).map(x => x.no); if (new Set(nos).size !== nos.length) { toast('号車が重複しています'); return; }
+  const removed = Object.keys((S.day && S.day.assign) || {}).filter(id => !out[id]);
+  const patch = { [`${D()}/assign`]: out };
+  removed.forEach(id => { patch[`${D()}/trucks/${id}`] = null; });
+  if (await fbPatch(patch)) { toast('登録しました'); asDraft = null; location.hash = '#monitor'; }
+};
+
+// 設定
+$('btnSettings').onclick = () => {
+  const c = cfg();
+  $('sUrl').value = dbUrl; $('sFloors').value = c.floors.join(','); $('sHub').value = c.hub;
+  $('sCap').value = c.capacity; $('sReset').value = c.resetHour; $('sCaut').value = c.caution; $('sWarn').value = c.warn;
+  $('sThr').value = c.detectThr; $('sTmo').value = c.detectTimeout;
+  $('dlg').showModal();
+};
+$('sCancel').onclick = () => $('dlg').close();
+$('sSave').onclick = async () => {
+  const floors = $('sFloors').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  const conf = {
+    floors: floors.length ? floors : DEFAULT_CFG.floors, hub: $('sHub').value.trim().toUpperCase(),
+    capacity: Math.max(1, +$('sCap').value || 14), resetHour: Math.min(23, Math.max(0, +$('sReset').value || 0)),
+    caution: Math.max(1, +$('sCaut').value || 8), warn: Math.max(1, +$('sWarn').value || 10),
+    detectThr: +$('sThr').value || -95, detectTimeout: Math.max(5, +$('sTmo').value || 20)
+  };
+  const urlChanged = $('sUrl').value.trim() !== dbUrl;
+  dbUrl = $('sUrl').value.trim() || DEFAULT_URL; LS.set('url', dbUrl);
+  $('dlg').close();
+  if (urlChanged) { for (const k of Object.keys(streams)) streams[k].close(); Object.assign(S, { config: null, sheet: null, tags: {}, receivers: {}, obs: {}, day: {} }); connectAll(); }
+  const patch = {}; for (const [k, v] of Object.entries(conf)) patch['config/' + k] = v;
+  if (await fbPatch(patch)) { S.config = Object.assign({}, S.config || {}, conf); render(); toast('設定を保存しました'); }
+};
+
+setInterval(() => { const d = new Date(); $('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`; scheduleRender(); }, 5000);
+setInterval(autoTick, 2000);
+$('clock').textContent = hhmm(Date.now());
+connectAll();
+route();
+</script>
+</body>
+</html>
