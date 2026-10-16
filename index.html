@@ -37,6 +37,22 @@ nav.tabs a.on{background:var(--card);color:var(--ink);font-weight:700;box-shadow
 .btn{height:40px;padding:0 14px;border-radius:8px;border:1px solid var(--accent);background:var(--card);color:var(--accent);font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn.big{height:52px;font-size:17px;justify-content:center}
+.hstats{display:flex;flex-wrap:wrap;gap:6px}
+.hstats .pill{padding:4px 9px;font-size:12px}.hstats .pill b{font-size:14px}
+nav.tabs a .badge-n{margin-left:6px;font-size:11px}
+.sum-wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.sum-kpi{display:flex;gap:12px;flex-wrap:wrap}
+.sum-kpi div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:160px}
+.sum-kpi small{display:block;font-size:12px;color:var(--muted)}
+.sum-kpi b{font-family:var(--mono);font-size:30px}
+.sbar{display:grid;grid-template-columns:150px minmax(0,1fr) 90px;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line2)}
+.sbar:last-child{border-bottom:none}
+.sbar .nm b{display:block;font-size:16px}.sbar .nm small{font-size:12px;color:var(--muted)}
+.sbar .tr{height:26px;background:var(--line2);border-radius:6px;display:flex;overflow:hidden}
+.sbar .tr i{display:block;height:100%;background:var(--accent)}
+.sbar .tr i.cur{background:repeating-linear-gradient(45deg,#8FB1E6 0 6px,#B5CCEF 6px 12px)}
+.sbar .v{text-align:right}.sbar .v b{font-family:var(--mono);font-size:24px}.sbar .v small{font-size:12px;color:var(--muted)}
+.sbar .dt{grid-column:2/4;font-size:12px;color:var(--muted);margin-top:-4px}
 .badge-n{font-size:12px;color:#fff;background:var(--red-b);border-radius:10px;padding:1px 7px}
 .seg{display:flex;border:1px solid #C7CDD5;border-radius:8px;overflow:hidden;align-items:center}
 .seg span{font-size:12px;color:var(--muted);padding:0 10px}
@@ -206,6 +222,8 @@ table.hist td{padding:6px 4px;border-bottom:1px solid var(--line2)}
 }
 dialog{border:1px solid var(--line);border-radius:14px;max-width:620px;width:calc(100% - 32px);padding:20px}
 dialog h3{margin:0 0 12px}
+dialog details.conn-set{margin:4px 0 12px;border-top:1px solid var(--line);padding-top:10px}
+dialog details.conn-set summary{cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:10px}
 dialog .fld{margin-bottom:12px}
 dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;border-radius:8px;width:100%}
 @media (max-width:640px){
@@ -220,9 +238,11 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
   <div class="brand"><small>OUTBOUND</small><b>縦持ちモニター</b></div>
   <nav class="tabs" aria-label="画面">
     <a href="#monitor" data-v="monitor">事務所モニター</a>
-    <a href="#assign" data-v="assign">本日の登録</a>
+    <a href="#summary" data-v="summary">サマリー</a>
+    <a href="#assign" data-v="assign">本日の登録<span class="badge-n" id="asBadge" hidden></span></a>
   </nav>
   <div class="seg" role="group" aria-label="運用モード" id="modeSeg"><span>運用モード</span><button type="button" data-mode="manual">手動</button><button type="button" data-mode="auto">自動検知</button></div>
+  <div class="hstats" id="stats"></div>
   <span class="sp"></span>
   <div class="zoom" id="zoomCtl" role="group" aria-label="表示倍率"><button type="button" data-zoom="-1" aria-label="小さく">−</button><span id="zoomVal">100%</span><button type="button" data-zoom="1" aria-label="大きく">＋</button><button type="button" class="auto" data-zoom="auto">自動</button></div>
   <span id="conn" class="conn">接続中…</span>
@@ -234,7 +254,6 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
 <main>
   <!-- 事務所モニター -->
   <section class="view" id="v-monitor">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;flex-shrink:0" id="stats"></div>
     <div class="mon">
       <div class="bld" aria-label="建物の断面">
         <div id="unplaced"></div>
@@ -251,6 +270,9 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
       </div>
     </div>
   </section>
+
+  <!-- サマリー -->
+  <section class="view" id="v-summary"><div class="sum-wrap" id="sumBody"></div></section>
 
   <!-- 現場入力 -->
   <section class="view" id="v-floor">
@@ -297,8 +319,6 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
 
 <dialog id="dlg">
   <h3>設定</h3>
-  <div class="fld"><label for="sUrl">データベースURL（この端末のみ）</label><input id="sUrl"></div>
-  <div class="fld"><label for="sKey">APIキー（匿名ログイン用・この端末のみ）</label><input id="sKey" placeholder="AIza..."></div>
   <div class="row2">
     <div class="fld"><label for="sFloors">階（上から順、カンマ区切り）</label><input id="sFloors"></div>
     <div class="fld"><label for="sHub">集約階</label><input id="sHub"></div>
@@ -315,7 +335,12 @@ dialog input,dialog select{height:42px;padding:0 10px;border:1px solid #C7CDD5;b
     <div class="fld"><label for="sThr">受信機：検知とみなす電波強度（dBm以上）</label><input id="sThr" type="number"></div>
     <div class="fld"><label for="sTmo">受信機：検知が途切れて移動中とみなす秒数</label><input id="sTmo" type="number" min="5"></div>
   </div>
-  <p class="muted">データベースURL以外の設定は全端末で共有されます。</p>
+  <details class="conn-set">
+    <summary>接続設定（通常は変更不要）</summary>
+    <div class="fld"><label for="sUrl">データベースURL（この端末のみ）</label><input id="sUrl"></div>
+    <div class="fld"><label for="sKey">APIキー（匿名ログイン用・この端末のみ）</label><input id="sKey" placeholder="AIza..."></div>
+  </details>
+  <p class="muted">接続設定以外は全端末で共有されます。</p>
   <div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" id="sCancel">キャンセル</button><button type="button" class="btn pri" id="sSave">保存</button></div>
 </dialog>
 <div class="toast" id="toast"></div>
@@ -577,7 +602,7 @@ async function depart(id, nextOverride) {
     [`${D()}/trucks/${id}/status`]: 'moving', [`${D()}/trucks/${id}/departedAt`]: SV,
     [`${D()}/trucks/${id}/next`]: next,
     [`${D()}/trucks/${id}/manual`]: c.mode === 'auto' ? false : !!t.manual
-  }, logEntry({ no: s.no, floor: t.floor, type: 'depart', io: t.floor === c.hub ? '出発' : `出発（積${t.loadedHere ?? 0}${t.remainHere != null ? '・残' + t.remainHere : ''}）`, next }));
+  }, logEntry({ no: s.no, floor: t.floor, type: 'depart', loaded: t.floor === c.hub ? null : Number(t.loadedHere || 0), io: t.floor === c.hub ? '出発' : `出発（積${t.loadedHere ?? 0}${t.remainHere != null ? '・残' + t.remainHere : ''}）`, next }));
   if (t.floor === c.hub) patch[`${D()}/trucks/${id}/load`] = 0;
   if (await fbPatch(patch)) toast(`${s.no} が出発しました`);
 }
@@ -658,6 +683,8 @@ function render() {
   if (view === 'monitor') renderMonitor();
   else if (view === 'floor') renderFloor();
   else if (view === 'assign') renderAssign();
+  else if (view === 'summary') renderSummary();
+  renderStats();
 }
 
 function cardHtml(v, selected) {
@@ -681,7 +708,7 @@ function cardHtml(v, selected) {
   </button>`;
 }
 
-function renderMonitor() {
+function renderStats() {
   const c = cfg();
   const vs = slots().map(truckView);
   const at = vs.filter(v => v.t.status === 'at'), mv = vs.filter(v => v.t.status === 'moving');
@@ -690,14 +717,63 @@ function renderMonitor() {
   let remainSum = 0; for (const f of c.floors) if (f !== c.hub) remainSum += remainOf(f).n || 0;
   const rxAll = Object.values(S.receivers || {}), rxOn = rxAll.filter(r => typeof r.lastSeen === 'number' && Date.now() - r.lastSeen < 15000).length;
   setHtml($('stats'), `
-    <span class="pill p-gray">稼働 <b>${vs.length}</b> 台</span>
-    <span class="pill p-ok">着車中 <b>${at.length}</b></span>
-    <span class="pill p-or">移動中 <b>${mv.length}</b></span>
-    <span class="pill ${nxMiss ? 'p-red' : 'p-gray'}">次の行き先 未入力 <b>${nxMiss}</b></span>
-    <span class="pill p-blue">残パレット合計 <b>${remainSum}</b> 枚</span>
-    <span class="sp" style="flex:1"></span>
-    ${rxAll.length ? `<span class="pill ${rxOn === rxAll.length ? 'p-ok' : 'p-red'}">受信機${c.mode === 'manual' ? '（補助）' : ''} ${rxOn}/${rxAll.length} 稼働</span>` : ''}
-    <a class="btn" href="#assign">本日のドライバー登録${unreg || !vs.length ? `<span class="badge-n">${vs.length ? '未' + unreg : '未登録'}</span>` : ''}</a>`);
+    <span class="pill p-gray">稼働 <b>${vs.length}</b>台</span>
+    <span class="pill p-ok">着車 <b>${at.length}</b></span>
+    <span class="pill p-or">移動 <b>${mv.length}</b></span>
+    <span class="pill ${nxMiss ? 'p-red' : 'p-gray'}">行き先未入力 <b>${nxMiss}</b></span>
+    <span class="pill p-blue">残パレット <b>${remainSum}</b>枚</span>
+    ${rxAll.length ? `<span class="pill ${rxOn === rxAll.length ? 'p-ok' : 'p-red'}">受信機 ${rxOn}/${rxAll.length}</span>` : ''}`);
+  const bg = $('asBadge');
+  const txt = !vs.length ? '未登録' : unreg ? '未' + unreg : '';
+  bg.hidden = !txt; bg.textContent = txt;
+}
+
+// サマリー：トラックごとの本日の積み込み枚数
+function renderSummary() {
+  const c = cfg();
+  const log = Object.values((S.day && S.day.log) || {}).filter(x => x && x.type === 'depart' && x.floor !== c.hub);
+  const rows = slots().map(s => {
+    const mine = log.filter(x => x.no === s.no);
+    const byFloor = {};
+    let done = 0;
+    for (const x of mine) {
+      const n = x.loaded != null ? Number(x.loaded) : Number(((x.io || '').match(/積(\d+)/) || [])[1] || 0);
+      done += n; byFloor[x.floor] = (byFloor[x.floor] || 0) + n;
+    }
+    const t = truckState(s.id) || {};
+    const cur = t.status === 'at' && t.floor !== c.hub ? Number(t.loadedHere || 0) : 0;
+    return { s, done, cur, trips: mine.length, byFloor, curFloor: t.floor };
+  });
+  const total = rows.reduce((a, r) => a + r.done + r.cur, 0);
+  const trips = rows.reduce((a, r) => a + r.trips, 0);
+  const max = Math.max(1, ...rows.map(r => r.done + r.cur));
+  setHtml($('sumBody'), `
+    <div class="sum-kpi">
+      <div><small>本日の積み込み合計</small><b>${total}</b> 枚</div>
+      <div><small>積み込み回数</small><b>${trips}</b> 回</div>
+      <div><small>稼働トラック</small><b>${rows.length}</b> 台</div>
+    </div>
+    <div class="panel">
+      <h2>トラックごとの積み込み枚数（業務日 ${esc(bd || '')}）</h2>
+      ${rows.length ? rows.map(r => `<div class="sbar">
+        <div class="nm"><b>${esc(r.s.no)}</b><small>${esc(r.s.driver || '未登録')}</small></div>
+        <div class="tr" aria-label="${esc(r.s.no)} ${r.done + r.cur}枚"><i style="width:${r.done / max * 100}%"></i>${r.cur ? `<i class="cur" style="width:${r.cur / max * 100}%"></i>` : ''}</div>
+        <div class="v"><b>${r.done + r.cur}</b><small> 枚</small></div>
+        <div class="dt">${r.trips}回${Object.keys(r.byFloor).length ? '・' + c.floors.filter(f => r.byFloor[f]).map(f => `${esc(f)} ${r.byFloor[f]}枚`).join(' / ') : ''}${r.cur ? `・${esc(r.curFloor)}で積込中 ${r.cur}枚（斜線）` : ''}</div>
+      </div>`).join('') : '<div class="muted">本日の登録がありません</div>'}
+    </div>
+    <div class="muted">集計対象：出発時点の「この階で積んだ枚数」。集約階での荷降ろしは含みません。</div>`);
+}
+
+function renderMonitor() {
+  const c = cfg();
+  const vs = slots().map(truckView);
+  const at = vs.filter(v => v.t.status === 'at'), mv = vs.filter(v => v.t.status === 'moving');
+  const nxMiss = at.filter(v => !v.t.next).length;
+  const unreg = vs.filter(v => v.unreg).length;
+  let remainSum = 0; for (const f of c.floors) if (f !== c.hub) remainSum += remainOf(f).n || 0;
+  const rxAll = Object.values(S.receivers || {}), rxOn = rxAll.filter(r => typeof r.lastSeen === 'number' && Date.now() - r.lastSeen < 15000).length;
+
 
   setHtml($('floors'), c.floors.map(f => {
     const rok = receiverOk(f);
@@ -857,7 +933,7 @@ function readAssignDraft() {
 // =====================================================================
 function route() {
   const v = (location.hash || '#monitor').slice(1);
-  view = ['monitor', 'assign'].includes(v) ? v : 'monitor';
+  view = ['monitor', 'summary', 'assign'].includes(v) ? v : 'monitor';
   if (view === 'assign') asDraft = null;
   render();
 }
@@ -1013,6 +1089,7 @@ $('asSave').onclick = async () => {
 // 設定
 $('btnSettings').onclick = () => {
   const c = cfg();
+  document.querySelector('#dlg details.conn-set').open = false;
   $('sUrl').value = dbUrl; $('sKey').value = apiKey; $('sFloors').value = c.floors.join(','); $('sHub').value = c.hub;
   $('sCap').value = c.capacity; $('sReset').value = c.resetHour; $('sCaut').value = c.caution; $('sWarn').value = c.warn;
   $('sThr').value = c.detectThr; $('sTmo').value = c.detectTimeout;
